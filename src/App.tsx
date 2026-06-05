@@ -85,22 +85,33 @@ const App: React.FC = () => {
 
   // ─── Carregamento inicial de operadores ───────────────────────────────────
 
+  const initialOpsDone = useRef(false);
   useEffect(() => {
+    // Aguarda o ping de conexão terminar antes de tentar carregar
+    if (isChecking) return;
+
     const loadOperators = async () => {
       setIsLoadingOperators(true);
       try {
         const ops = await DB.fetchOperators(isOnline);
-        setOperators(ops);
+        if (ops.length > 0) {
+          setOperators(ops);
+        } else if (!isOnline) {
+          // Sem conexão e sem cache: mostra loading até reconectar
+          const cached = lsGet<Operator[]>(LS.OPERATORS);
+          if (cached && cached.length > 0) setOperators(cached);
+        }
       } catch (err) {
         console.warn('[App] Erro ao carregar operadores:', err);
         const cached = lsGet<Operator[]>(LS.OPERATORS);
-        if (cached) setOperators(cached);
+        if (cached && cached.length > 0) setOperators(cached);
       } finally {
         setIsLoadingOperators(false);
+        initialOpsDone.current = true;
       }
     };
     loadOperators();
-  }, [isOnline]);
+  }, [isChecking, isOnline]);
 
   // ─── Carregamento inicial de dados (produtos, vendas, caixa) ─────────────
 
@@ -540,7 +551,7 @@ const App: React.FC = () => {
       <LoginScreen
         operators={operators}
         onLogin={handleLogin}
-        isLoading={isLoadingOperators}
+        isLoading={isLoadingOperators || isChecking}
       />
     );
   }
