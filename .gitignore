@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment variables (NUNCA commitar chaves do Supabase)
+.env
+.env.local
+.env.production
