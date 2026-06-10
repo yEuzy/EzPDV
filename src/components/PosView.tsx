@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import type { Product, CartItem, SalePayment } from '../types';
-import { INITIAL_CATEGORIES } from '../utils/mockData';
+import type { Product, CartItem, SalePayment, Category } from '../types';
 import { 
   Plus, 
   Minus, 
@@ -11,7 +10,12 @@ import {
   DollarSign,
   Search,
   Check,
-  ArrowLeft
+  ArrowLeft,
+  IceCreamCone,
+  CupSoda,
+  IceCreamBowl,
+  Cake,
+  Store
 } from 'lucide-react';
 
 interface PosViewProps {
@@ -28,6 +32,7 @@ interface PosViewProps {
   cashRegister: { isOpen: boolean; openedAt: string | null; startingCash: number };
   onOpenRegister: (startingCash: number) => void;
   currentCash: number;
+  categories: Category[];
 }
 
 export const PosView: React.FC<PosViewProps> = ({
@@ -43,7 +48,8 @@ export const PosView: React.FC<PosViewProps> = ({
   setIsCartMobileVisible,
   cashRegister,
   onOpenRegister,
-  currentCash
+  currentCash,
+  categories
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -101,14 +107,13 @@ export const PosView: React.FC<PosViewProps> = ({
   };
 
   // Helper to render Category Icons dynamically or fallback to fallback
-  const getCategoryEmoji = (categoryId: string) => {
-    switch (categoryId) {
-      case 'all': return '🍦';
-      case 'casquinhas': return '🍦';
-      case 'milkshakes': return '🥤';
-      case 'sundaes': return '🍧';
-      case 'bebidas': return '🥤';
-      default: return '🧁';
+  const getCategoryIcon = (iconName: string, size: number = 24) => {
+    switch (iconName) {
+      case 'IceCreamCone': return <IceCreamCone size={size} />;
+      case 'CupSoda': return <CupSoda size={size} />;
+      case 'IceCreamBowl': return <IceCreamBowl size={size} />;
+      case 'Store': return <Store size={size} />;
+      default: return <Cake size={size} />;
     }
   };
 
@@ -126,7 +131,7 @@ export const PosView: React.FC<PosViewProps> = ({
     return (
       <div className="open-register-container">
         <div className="open-register-card card">
-          <div className="open-register-icon">🏪</div>
+          <Store size={48} className="open-register-icon" style={{ margin: '0 auto', display: 'block' }} />
           <h2 className="open-register-title">Caixa Fechado</h2>
           <p className="open-register-desc">
             Inicie o expediente abrindo o caixa e informando o saldo inicial em dinheiro para troco.
@@ -218,13 +223,13 @@ export const PosView: React.FC<PosViewProps> = ({
 
         {/* Categories Slider */}
         <div className="categories-slider">
-          {INITIAL_CATEGORIES.map((category) => (
+          {categories.map((category) => (
             <button
               key={category.id}
               className={`category-btn ${selectedCategory === category.id ? 'active' : ''}`}
               onClick={() => setSelectedCategory(category.id)}
             >
-              <span>{getCategoryEmoji(category.id)}</span>
+              <span style={{ display: 'flex', alignItems: 'center' }}>{getCategoryIcon(category.icon, 18)}</span>
               {category.name}
             </button>
           ))}
@@ -233,7 +238,7 @@ export const PosView: React.FC<PosViewProps> = ({
         {/* Products Grid */}
         {filteredProducts.length === 0 ? (
           <div className="card" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-light)' }}>
-            <div style={{ fontSize: '40px', marginBottom: '12px' }}>🍦</div>
+            <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center' }}><IceCreamCone size={40} /></div>
             <h3>Nenhum sorvete encontrado</h3>
             <p>Tente mudar a categoria ou limpar a sua busca.</p>
           </div>
@@ -253,7 +258,10 @@ export const PosView: React.FC<PosViewProps> = ({
                   onClick={() => addToCart(product)}
                 >
                   <div className="product-avatar">
-                    {getCategoryEmoji(product.category)}
+                    {(() => {
+                      const prodCat = categories.find(c => c.id === product.category);
+                      return getCategoryIcon(prodCat?.icon || 'Cake', 26);
+                    })()}
                   </div>
                   <div className="product-info">
                     <span className="product-name">{product.name}</span>
@@ -261,12 +269,32 @@ export const PosView: React.FC<PosViewProps> = ({
                   </div>
                   <div className="product-price-row">
                     <span className="product-price">R$ {product.price.toFixed(2)}</span>
-                    <button className="add-product-btn" onClick={(e) => {
-                      e.stopPropagation();
-                      addToCart(product);
-                    }}>
-                      <Plus size={16} />
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {(() => {
+                        const cartItem = cart.find(i => i.product.id === product.id);
+                        const qty = cartItem ? cartItem.quantity : 0;
+                        if (qty > 0) {
+                          return (
+                            <>
+                              <button className="add-product-btn" onClick={(e) => {
+                                e.stopPropagation();
+                                updateQuantity(product.id, -1);
+                              }}>
+                                <Minus size={16} />
+                              </button>
+                              <span style={{ fontSize: '13px', fontWeight: 700, minWidth: '16px', textAlign: 'center' }}>{qty}</span>
+                            </>
+                          );
+                        }
+                        return null;
+                      })()}
+                      <button className="add-product-btn" onClick={(e) => {
+                        e.stopPropagation();
+                        addToCart(product);
+                      }}>
+                        <Plus size={16} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -303,7 +331,7 @@ export const PosView: React.FC<PosViewProps> = ({
         <div className="cart-items-list">
           {cart.length === 0 ? (
             <div className="cart-empty-state">
-              <span className="cart-empty-icon">🍦</span>
+              <IceCreamCone size={48} className="cart-empty-icon" style={{ display: 'block', margin: '0 auto' }} />
               <h3>Carrinho Vazio</h3>
               <p>Toque em algum sorvete ao lado para adicionar ao pedido!</p>
             </div>

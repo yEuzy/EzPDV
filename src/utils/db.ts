@@ -134,6 +134,55 @@ export async function fetchCategories(isOnline: boolean): Promise<Category[]> {
   return lsGet<Category[]>(LS.CATEGORIES) ?? [];
 }
 
+export async function addCategory(
+  isOnline: boolean,
+  category: Category
+): Promise<void> {
+  if (isOnline && supabase) {
+    const { error } = await supabase.from('categories').insert(category);
+    if (error) throw error;
+  } else {
+    enqueue('INSERT_CATEGORY', 'categories', category as unknown as Record<string, unknown>);
+  }
+  const current = lsGet<Category[]>(LS.CATEGORIES) ?? [];
+  lsSet(LS.CATEGORIES, [...current, category]);
+}
+
+export async function updateCategory(
+  isOnline: boolean,
+  category: Category
+): Promise<void> {
+  const { id, ...fields } = category;
+  if (isOnline && supabase) {
+    const { error } = await supabase
+      .from('categories')
+      .update(fields)
+      .eq('id', id);
+    if (error) throw error;
+  } else {
+    enqueue('UPDATE_CATEGORY', 'categories', fields as Record<string, unknown>, {
+      column: 'id',
+      value: id,
+    });
+  }
+  const current = lsGet<Category[]>(LS.CATEGORIES) ?? [];
+  lsSet(LS.CATEGORIES, current.map(c => (c.id === id ? category : c)));
+}
+
+export async function deleteCategory(
+  isOnline: boolean,
+  id: string
+): Promise<void> {
+  if (isOnline && supabase) {
+    const { error } = await supabase.from('categories').delete().eq('id', id);
+    if (error) throw error;
+  } else {
+    enqueue('DELETE_CATEGORY', 'categories', {}, { column: 'id', value: id });
+  }
+  const current = lsGet<Category[]>(LS.CATEGORIES) ?? [];
+  lsSet(LS.CATEGORIES, current.filter(c => c.id !== id));
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // PRODUTOS
 // ═══════════════════════════════════════════════════════════════════════════════

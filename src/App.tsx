@@ -8,6 +8,7 @@ import type {
   CashMovement,
   CashRegister,
   CashRegisterSession,
+  Category,
 } from './types';
 import { PosView } from './components/PosView';
 import { ProductsView } from './components/ProductsView';
@@ -26,6 +27,7 @@ import {
   RefreshCw,
   WifiOff,
   Wifi,
+  IceCreamCone
 } from 'lucide-react';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -54,6 +56,7 @@ const App: React.FC = () => {
 
   // Data states
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [operators, setOperators] = useState<Operator[]>([]);
 
@@ -118,15 +121,23 @@ const App: React.FC = () => {
   const loadAllData = useCallback(
     async (online: boolean) => {
       try {
-        const [prods, salesData, cashData] = await Promise.all([
+        const [prods, salesData, cashData, catsData] = await Promise.all([
           DB.fetchProducts(online),
           DB.fetchSales(online),
           DB.fetchCashData(online),
+          DB.fetchCategories(online),
         ]);
         setProducts(prods);
         setSales(salesData);
         setCashRegister(cashData.register);
         setPastSessions(cashData.pastSessions);
+        setCategories(catsData.length > 0 ? catsData : [
+          { id: 'all', name: 'Todos', icon: 'IceCreamCone', sort_order: 0 },
+          { id: 'casquinhas', name: 'Casquinhas', icon: 'IceCreamCone', sort_order: 1 },
+          { id: 'milkshakes', name: 'Milkshakes', icon: 'CupSoda', sort_order: 2 },
+          { id: 'sundaes', name: 'Sundaes & Taças', icon: 'IceCreamBowl', sort_order: 3 },
+          { id: 'bebidas', name: 'Bebidas', icon: 'CupSoda', sort_order: 4 }
+        ]);
       } catch (err) {
         console.warn('[App] Erro ao carregar dados:', err);
         // Fallback para cache local se não conseguiu do Supabase
@@ -141,10 +152,18 @@ const App: React.FC = () => {
           movements: [],
         };
         const cachedSessions = lsGet<CashRegisterSession[]>(LS.PAST_SESSIONS) ?? [];
+        const cachedCategories = lsGet<Category[]>(LS.CATEGORIES) ?? [];
         setProducts(cachedProducts);
         setSales(cachedSales);
         setCashRegister(cachedRegister);
         setPastSessions(cachedSessions);
+        setCategories(cachedCategories.length > 0 ? cachedCategories : [
+          { id: 'all', name: 'Todos', icon: 'IceCreamCone', sort_order: 0 },
+          { id: 'casquinhas', name: 'Casquinhas', icon: 'IceCreamCone', sort_order: 1 },
+          { id: 'milkshakes', name: 'Milkshakes', icon: 'CupSoda', sort_order: 2 },
+          { id: 'sundaes', name: 'Sundaes & Taças', icon: 'IceCreamBowl', sort_order: 3 },
+          { id: 'bebidas', name: 'Bebidas', icon: 'CupSoda', sort_order: 4 }
+        ]);
       }
     },
     []
@@ -480,6 +499,38 @@ const App: React.FC = () => {
     }
   };
 
+  // ─── Categorias CRUD ──────────────────────────────────────────────────────
+
+  const handleAddCategory = async (categoryData: Omit<Category, 'id'>) => {
+    const newCategory: Category = { ...categoryData, id: `cat-${generateId()}` };
+    try {
+      await DB.addCategory(isOnline, newCategory);
+      setCategories(prev => [...prev, newCategory]);
+    } catch (err: any) {
+      alert('Erro ao adicionar categoria: ' + err.message);
+    }
+  };
+
+  const handleUpdateCategory = async (updatedCategory: Category) => {
+    try {
+      await DB.updateCategory(isOnline, updatedCategory);
+      setCategories(prev =>
+        prev.map(c => (c.id === updatedCategory.id ? updatedCategory : c))
+      );
+    } catch (err: any) {
+      alert('Erro ao atualizar categoria: ' + err.message);
+    }
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    try {
+      await DB.deleteCategory(isOnline, id);
+      setCategories(prev => prev.filter(c => c.id !== id));
+    } catch (err: any) {
+      alert('Erro ao excluir categoria: ' + err.message);
+    }
+  };
+
   // ─── Ações administrativas ────────────────────────────────────────────────
 
   const handleClearSales = async () => {
@@ -564,7 +615,7 @@ const App: React.FC = () => {
       <aside className="sidebar">
         <div>
           <div className="brand">
-            <div className="brand-icon">🍦</div>
+            <div className="brand-icon" style={{ display: 'flex', alignItems: 'center' }}><IceCreamCone size={24} /></div>
             <div>
               <span className="brand-name">EzPDV</span>
               <span className="brand-tagline">Quiosque de Sorvete</span>
@@ -597,8 +648,8 @@ const App: React.FC = () => {
             {isChecking
               ? 'Verificando conexão…'
               : isOnline
-              ? 'Nuvem Conectada ☁️'
-              : `Modo Offline 📴${pendingOps > 0 ? ` (${pendingOps} pendente${pendingOps > 1 ? 's' : ''})` : ''}`}
+              ? 'Nuvem Conectada'
+              : `Modo Offline${pendingOps > 0 ? ` (${pendingOps} pendente${pendingOps > 1 ? 's' : ''})` : ''}`}
           </div>
 
           <nav className="nav-menu">
@@ -678,7 +729,7 @@ const App: React.FC = () => {
       {/* Mobile Header */}
       <header className="mobile-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '24px' }}>🍦</span>
+          <span style={{ display: 'flex', alignItems: 'center' }}><IceCreamCone size={24} color="var(--primary)" /></span>
           <div>
             <span
               style={{
@@ -698,7 +749,7 @@ const App: React.FC = () => {
                 fontWeight: 700,
               }}
             >
-              {isChecking ? 'Verificando…' : isOnline ? 'Online ☁️' : 'Offline 📴'}
+              {isChecking ? 'Verificando…' : isOnline ? 'Online' : 'Offline'}
             </span>
           </div>
         </div>
@@ -783,7 +834,7 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        <div style={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           {activeTab === 'pos' && (
             <PosView
               products={products}
@@ -797,6 +848,7 @@ const App: React.FC = () => {
               isCartMobileVisible={isCartMobileVisible}
               setIsCartMobileVisible={setIsCartMobileVisible}
               cashRegister={cashRegister}
+              categories={categories}
               onOpenRegister={handleOpenRegister}
               currentCash={currentCash}
             />
@@ -805,9 +857,13 @@ const App: React.FC = () => {
           {activeTab === 'products' && (
             <ProductsView
               products={products}
+              categories={categories}
               onAddProduct={handleAddProduct}
               onUpdateProduct={handleUpdateProduct}
               onDeleteProduct={handleDeleteProduct}
+              onAddCategory={handleAddCategory}
+              onUpdateCategory={handleUpdateCategory}
+              onDeleteCategory={handleDeleteCategory}
             />
           )}
 

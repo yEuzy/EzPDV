@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { Operator } from '../types';
-import { Delete, Loader2 } from 'lucide-react';
+import { Delete, Loader2, IceCreamCone } from 'lucide-react';
 
 interface LoginScreenProps {
   operators: Operator[];
@@ -79,7 +79,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   return (
     <div className="login-overlay">
       <div className="login-card card">
-        <div className="login-logo">🍦</div>
+        <div className="login-logo" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><IceCreamCone size={48} /></div>
         <h2 className="login-title">EzPDV Gelateria</h2>
         <p className="login-subtitle">
           Selecione seu operador e digite seu PIN de 4 dígitos para entrar.
@@ -138,46 +138,34 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               </select>
             </div>
 
-            {/* PIN Dot Indicators */}
-            <div className="pin-dots-container">
-              {[0, 1, 2, 3].map(idx => (
-                <div key={idx} className={`pin-dot ${pin.length > idx ? 'filled' : ''}`} />
-              ))}
-            </div>
-
-            {/* PIN Pad Grid */}
-            <div className="pin-pad-grid">
-              {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(num => (
-                <button
-                  key={num}
-                  type="button"
-                  className="pin-btn"
-                  onClick={() => handleNumberClick(num)}
-                >
-                  {num}
-                </button>
-              ))}
-              <button
-                type="button"
-                className="pin-btn functional clear"
-                onClick={handleClear}
-              >
-                C
-              </button>
-              <button
-                type="button"
-                className="pin-btn"
-                onClick={() => handleNumberClick('0')}
-              >
-                0
-              </button>
-              <button
-                type="button"
-                className="pin-btn functional delete"
-                onClick={handleDelete}
-              >
-                <Delete size={18} />
-              </button>
+            <div className="form-group" style={{ marginBottom: '20px', textAlign: 'center' }}>
+              <label className="form-label">PIN de Acesso</label>
+              <input
+                type="password"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={4}
+                className="form-input"
+                style={{ 
+                  width: '100%', 
+                  boxSizing: 'border-box', 
+                  height: '56px', 
+                  fontSize: '24px', 
+                  textAlign: 'center',
+                  letterSpacing: '8px',
+                  fontWeight: 'bold'
+                }}
+                value={pin}
+                onChange={e => {
+                  const val = e.target.value.replace(/[^0-9]/g, '');
+                  if (val.length <= 4) {
+                    setPin(val);
+                    setError('');
+                  }
+                }}
+                placeholder="****"
+                autoFocus
+              />
             </div>
           </>
         )}
