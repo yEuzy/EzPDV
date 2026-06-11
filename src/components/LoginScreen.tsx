@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { Operator } from '../types';
-import { Delete, Loader2, IceCreamCone } from 'lucide-react';
+import { Loader2, IceCreamCone } from 'lucide-react';
 
 interface LoginScreenProps {
   operators: Operator[];
