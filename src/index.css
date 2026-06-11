@@ -335,7 +335,8 @@ body {
 @media (max-width: 900px) {
   .pos-layout {
     flex-direction: column;
-    overflow-y: auto;
+    overflow-y: visible;
+    height: auto;
   }
   .pos-products-side {
     overflow-y: visible;
