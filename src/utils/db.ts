@@ -1,12 +1,13 @@
 /**
  * db.ts
- * Camada de abstração de dados do EzPDV.
+ * Camada de abstração de dados do EzPDV — Multi-empresa v2.
  *
  * Estratégia:
- *  - Online  → Lê/Escreve no Supabase. Atualiza cache LocalStorage.
+ *  - Online  → Lê/Escreve no Supabase (filtrado por company_id). Atualiza cache LocalStorage.
  *  - Offline → Lê do cache LocalStorage. Escreve na fila offline (offlineQueue).
  *
- * Todas as funções recebem `isOnline: boolean` para decidir o modo.
+ * Todas as funções recebem `isOnline: boolean` e `companyId: string`.
+ * As chaves do LocalStorage são prefixadas com o company_id para isolamento total.
  */
 
 import { supabase } from './supabaseClient';
@@ -21,17 +22,19 @@ import type {
   CashRegister,
   CashRegisterSession,
   CashMovement,
+  Company,
 } from '../types';
 
-// ─── Chaves do LocalStorage (cache) ───────────────────────────────────────────
+// ─── Chaves do LocalStorage (prefixadas por empresa) ──────────────────────────
 export const LS = {
-  PRODUCTS: 'ezpdv_products_v2',
-  CATEGORIES: 'ezpdv_categories_v2',
-  OPERATORS: 'ezpdv_operators_v2',
-  SALES: 'ezpdv_sales_v2',
-  CASH_REGISTER: 'ezpdv_cash_register_v2',
-  PAST_SESSIONS: 'ezpdv_past_sessions_v2',
-  CURRENT_USER: 'ezpdv_current_user_v2',
+  PRODUCTS:      (cid: string) => `ezpdv_${cid}_products_v2`,
+  CATEGORIES:    (cid: string) => `ezpdv_${cid}_categories_v2`,
+  OPERATORS:     (cid: string) => `ezpdv_${cid}_operators_v2`,
+  SALES:         (cid: string) => `ezpdv_${cid}_sales_v2`,
+  CASH_REGISTER: (cid: string) => `ezpdv_${cid}_cash_register_v2`,
+  PAST_SESSIONS: (cid: string) => `ezpdv_${cid}_past_sessions_v2`,
+  CURRENT_USER:  (cid: string) => `ezpdv_${cid}_current_user_v2`,
+  COMPANY:                       'ezpdv_current_company',
 } as const;
 
 // ─── Helpers LocalStorage ──────────────────────────────────────────────────────
@@ -49,107 +52,166 @@ function lsSet<T>(key: string, value: T): void {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// EMPRESAS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export async function fetchAllCompanies(): Promise<Company[]> {
+  if (supabase) {
+    const { data, error } = await supabase
+      .from('companies')
+      .select('*')
+      .order('created_at');
+    if (error) throw error;
+    return (data || []) as Company[];
+  }
+  return [];
+}
+
+export async function fetchCompany(id: string): Promise<Company | null> {
+  if (supabase) {
+    const { data, error } = await supabase
+      .from('companies')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error) throw error;
+    if (data) lsSet(LS.COMPANY, data);
+    return data as Company;
+  }
+  return lsGet<Company>(LS.COMPANY);
+}
+
+export async function addCompany(company: Company): Promise<void> {
+  if (!supabase) throw new Error('Supabase não configurado');
+  const { error } = await supabase.from('companies').insert(company);
+  if (error) throw error;
+}
+
+export async function updateCompany(company: Company): Promise<void> {
+  if (!supabase) throw new Error('Supabase não configurado');
+  const { id, ...fields } = company;
+  const { error } = await supabase.from('companies').update(fields).eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteCompany(id: string): Promise<void> {
+  if (!supabase) throw new Error('Supabase não configurado');
+  const { error } = await supabase.from('companies').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // OPERADORES
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export async function fetchOperators(isOnline: boolean): Promise<Operator[]> {
+export async function fetchOperators(isOnline: boolean, companyId: string): Promise<Operator[]> {
   if (isOnline && supabase) {
     const { data, error } = await supabase
       .from('operators')
       .select('*')
+      .eq('company_id', companyId)
       .order('created_at');
     if (error) throw error;
     const operators = (data || []) as Operator[];
-    lsSet(LS.OPERATORS, operators);
+    lsSet(LS.OPERATORS(companyId), operators);
     return operators;
   }
-  return lsGet<Operator[]>(LS.OPERATORS) ?? [];
+  return lsGet<Operator[]>(LS.OPERATORS(companyId)) ?? [];
 }
 
 export async function addOperator(
   isOnline: boolean,
+  companyId: string,
   operator: Operator
 ): Promise<void> {
+  const payload = { ...operator, company_id: companyId };
   if (isOnline && supabase) {
-    const { error } = await supabase.from('operators').insert(operator);
+    const { error } = await supabase.from('operators').insert(payload);
     if (error) throw error;
   } else {
-    enqueue('INSERT_OPERATOR', 'operators', operator as unknown as Record<string, unknown>);
+    enqueue('INSERT_OPERATOR', 'operators', payload as unknown as Record<string, unknown>);
   }
-  const current = lsGet<Operator[]>(LS.OPERATORS) ?? [];
-  lsSet(LS.OPERATORS, [...current, operator]);
+  const current = lsGet<Operator[]>(LS.OPERATORS(companyId)) ?? [];
+  lsSet(LS.OPERATORS(companyId), [...current, { ...operator, company_id: companyId }]);
 }
 
 export async function updateOperator(
   isOnline: boolean,
+  companyId: string,
   operator: Operator
 ): Promise<void> {
+  const fields = { name: operator.name, role: operator.role, pin: operator.pin };
   if (isOnline && supabase) {
     const { error } = await supabase
       .from('operators')
-      .update({ name: operator.name, role: operator.role, pin: operator.pin })
-      .eq('id', operator.id);
+      .update(fields)
+      .eq('id', operator.id)
+      .eq('company_id', companyId);
     if (error) throw error;
   } else {
-    enqueue(
-      'UPDATE_OPERATOR',
-      'operators',
-      { name: operator.name, role: operator.role, pin: operator.pin },
-      { column: 'id', value: operator.id }
-    );
+    enqueue('UPDATE_OPERATOR', 'operators', fields, { column: 'id', value: operator.id });
   }
-  const current = lsGet<Operator[]>(LS.OPERATORS) ?? [];
-  lsSet(LS.OPERATORS, current.map(o => (o.id === operator.id ? operator : o)));
+  const current = lsGet<Operator[]>(LS.OPERATORS(companyId)) ?? [];
+  lsSet(LS.OPERATORS(companyId), current.map(o => (o.id === operator.id ? { ...operator, company_id: companyId } : o)));
 }
 
 export async function deleteOperator(
   isOnline: boolean,
+  companyId: string,
   id: string
 ): Promise<void> {
   if (isOnline && supabase) {
-    const { error } = await supabase.from('operators').delete().eq('id', id);
+    const { error } = await supabase
+      .from('operators')
+      .delete()
+      .eq('id', id)
+      .eq('company_id', companyId);
     if (error) throw error;
   } else {
     enqueue('DELETE_OPERATOR', 'operators', {}, { column: 'id', value: id });
   }
-  const current = lsGet<Operator[]>(LS.OPERATORS) ?? [];
-  lsSet(LS.OPERATORS, current.filter(o => o.id !== id));
+  const current = lsGet<Operator[]>(LS.OPERATORS(companyId)) ?? [];
+  lsSet(LS.OPERATORS(companyId), current.filter(o => o.id !== id));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CATEGORIAS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export async function fetchCategories(isOnline: boolean): Promise<Category[]> {
+export async function fetchCategories(isOnline: boolean, companyId: string): Promise<Category[]> {
   if (isOnline && supabase) {
     const { data, error } = await supabase
       .from('categories')
       .select('*')
+      .eq('company_id', companyId)
       .order('sort_order');
     if (error) throw error;
     const categories = (data || []) as Category[];
-    lsSet(LS.CATEGORIES, categories);
+    lsSet(LS.CATEGORIES(companyId), categories);
     return categories;
   }
-  return lsGet<Category[]>(LS.CATEGORIES) ?? [];
+  return lsGet<Category[]>(LS.CATEGORIES(companyId)) ?? [];
 }
 
 export async function addCategory(
   isOnline: boolean,
+  companyId: string,
   category: Category
 ): Promise<void> {
+  const payload = { ...category, company_id: companyId };
   if (isOnline && supabase) {
-    const { error } = await supabase.from('categories').insert(category);
+    const { error } = await supabase.from('categories').insert(payload);
     if (error) throw error;
   } else {
-    enqueue('INSERT_CATEGORY', 'categories', category as unknown as Record<string, unknown>);
+    enqueue('INSERT_CATEGORY', 'categories', payload as unknown as Record<string, unknown>);
   }
-  const current = lsGet<Category[]>(LS.CATEGORIES) ?? [];
-  lsSet(LS.CATEGORIES, [...current, category]);
+  const current = lsGet<Category[]>(LS.CATEGORIES(companyId)) ?? [];
+  lsSet(LS.CATEGORIES(companyId), [...current, payload]);
 }
 
 export async function updateCategory(
   isOnline: boolean,
+  companyId: string,
   category: Category
 ): Promise<void> {
   const { id, ...fields } = category;
@@ -157,7 +219,8 @@ export async function updateCategory(
     const { error } = await supabase
       .from('categories')
       .update(fields)
-      .eq('id', id);
+      .eq('id', id)
+      .eq('company_id', companyId);
     if (error) throw error;
   } else {
     enqueue('UPDATE_CATEGORY', 'categories', fields as Record<string, unknown>, {
@@ -165,58 +228,69 @@ export async function updateCategory(
       value: id,
     });
   }
-  const current = lsGet<Category[]>(LS.CATEGORIES) ?? [];
-  lsSet(LS.CATEGORIES, current.map(c => (c.id === id ? category : c)));
+  const current = lsGet<Category[]>(LS.CATEGORIES(companyId)) ?? [];
+  lsSet(LS.CATEGORIES(companyId), current.map(c => (c.id === id ? { ...category, company_id: companyId } : c)));
 }
 
 export async function deleteCategory(
   isOnline: boolean,
+  companyId: string,
   id: string
 ): Promise<void> {
   if (isOnline && supabase) {
-    const { error } = await supabase.from('categories').delete().eq('id', id);
+    const { error } = await supabase
+      .from('categories')
+      .delete()
+      .eq('id', id)
+      .eq('company_id', companyId);
     if (error) throw error;
   } else {
     enqueue('DELETE_CATEGORY', 'categories', {}, { column: 'id', value: id });
   }
-  const current = lsGet<Category[]>(LS.CATEGORIES) ?? [];
-  lsSet(LS.CATEGORIES, current.filter(c => c.id !== id));
+  const current = lsGet<Category[]>(LS.CATEGORIES(companyId)) ?? [];
+  lsSet(LS.CATEGORIES(companyId), current.filter(c => c.id !== id));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PRODUTOS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export async function fetchProducts(isOnline: boolean): Promise<Product[]> {
+export async function fetchProducts(isOnline: boolean, companyId: string): Promise<Product[]> {
   if (isOnline && supabase) {
-    const { data, error } = await supabase.from('products').select('*');
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('company_id', companyId);
     if (error) throw error;
     const products = (data || []).map(p => ({
       ...p,
       price: Number(p.price),
     })) as Product[];
-    lsSet(LS.PRODUCTS, products);
+    lsSet(LS.PRODUCTS(companyId), products);
     return products;
   }
-  return lsGet<Product[]>(LS.PRODUCTS) ?? [];
+  return lsGet<Product[]>(LS.PRODUCTS(companyId)) ?? [];
 }
 
 export async function addProduct(
   isOnline: boolean,
+  companyId: string,
   product: Product
 ): Promise<void> {
+  const payload = { ...product, company_id: companyId };
   if (isOnline && supabase) {
-    const { error } = await supabase.from('products').insert(product);
+    const { error } = await supabase.from('products').insert(payload);
     if (error) throw error;
   } else {
-    enqueue('INSERT_PRODUCT', 'products', product as unknown as Record<string, unknown>);
+    enqueue('INSERT_PRODUCT', 'products', payload as unknown as Record<string, unknown>);
   }
-  const current = lsGet<Product[]>(LS.PRODUCTS) ?? [];
-  lsSet(LS.PRODUCTS, [...current, product]);
+  const current = lsGet<Product[]>(LS.PRODUCTS(companyId)) ?? [];
+  lsSet(LS.PRODUCTS(companyId), [...current, payload]);
 }
 
 export async function updateProduct(
   isOnline: boolean,
+  companyId: string,
   product: Product
 ): Promise<void> {
   const { id, ...fields } = product;
@@ -224,7 +298,8 @@ export async function updateProduct(
     const { error } = await supabase
       .from('products')
       .update(fields)
-      .eq('id', id);
+      .eq('id', id)
+      .eq('company_id', companyId);
     if (error) throw error;
   } else {
     enqueue('UPDATE_PRODUCT', 'products', fields as Record<string, unknown>, {
@@ -232,44 +307,47 @@ export async function updateProduct(
       value: id,
     });
   }
-  const current = lsGet<Product[]>(LS.PRODUCTS) ?? [];
-  lsSet(LS.PRODUCTS, current.map(p => (p.id === id ? product : p)));
+  const current = lsGet<Product[]>(LS.PRODUCTS(companyId)) ?? [];
+  lsSet(LS.PRODUCTS(companyId), current.map(p => (p.id === id ? { ...product, company_id: companyId } : p)));
 }
 
 export async function deleteProduct(
   isOnline: boolean,
+  companyId: string,
   id: string
 ): Promise<void> {
   if (isOnline && supabase) {
-    const { error } = await supabase.from('products').delete().eq('id', id);
+    const { error } = await supabase
+      .from('products')
+      .delete()
+      .eq('id', id)
+      .eq('company_id', companyId);
     if (error) throw error;
   } else {
     enqueue('DELETE_PRODUCT', 'products', {}, { column: 'id', value: id });
   }
-  const current = lsGet<Product[]>(LS.PRODUCTS) ?? [];
-  lsSet(LS.PRODUCTS, current.filter(p => p.id !== id));
+  const current = lsGet<Product[]>(LS.PRODUCTS(companyId)) ?? [];
+  lsSet(LS.PRODUCTS(companyId), current.filter(p => p.id !== id));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // VENDAS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export async function fetchSales(isOnline: boolean): Promise<Sale[]> {
+export async function fetchSales(isOnline: boolean, companyId: string): Promise<Sale[]> {
   if (isOnline && supabase) {
-    // Buscar vendas
     const { data: salesData, error: salesErr } = await supabase
       .from('sales')
       .select('*')
+      .eq('company_id', companyId)
       .order('date', { ascending: false });
     if (salesErr) throw salesErr;
 
-    // Buscar itens de todas as vendas
     const { data: itemsData, error: itemsErr } = await supabase
       .from('sale_items')
       .select('*');
     if (itemsErr) throw itemsErr;
 
-    // Buscar pagamentos de todas as vendas
     const { data: paymentsData, error: paymentsErr } = await supabase
       .from('sale_payments')
       .select('*');
@@ -285,6 +363,7 @@ export async function fetchSales(isOnline: boolean): Promise<Sale[]> {
             price: Number(i.price),
             category: '',
             color: '',
+            company_id: companyId,
           },
           quantity: i.quantity,
           notes: i.notes ?? '',
@@ -301,18 +380,20 @@ export async function fetchSales(isOnline: boolean): Promise<Sale[]> {
         soldBy: s.sold_by,
         items,
         payments,
+        company_id: companyId,
       };
     });
 
-    lsSet(LS.SALES, sales);
+    lsSet(LS.SALES(companyId), sales);
     return sales;
   }
 
-  return lsGet<Sale[]>(LS.SALES) ?? [];
+  return lsGet<Sale[]>(LS.SALES(companyId)) ?? [];
 }
 
 export async function insertSale(
   isOnline: boolean,
+  companyId: string,
   sale: Sale,
   cashSessionId: string | null
 ): Promise<void> {
@@ -322,6 +403,7 @@ export async function insertSale(
     total: sale.total,
     sold_by: sale.soldBy,
     cash_session_id: cashSessionId,
+    company_id: companyId,
   };
 
   const itemRows = sale.items.map(item => ({
@@ -354,25 +436,29 @@ export async function insertSale(
     enqueue('INSERT_SALE_PAYMENTS', 'sale_payments', paymentRows as unknown as Record<string, unknown>[]);
   }
 
-  // Atualizar cache local
-  const current = lsGet<Sale[]>(LS.SALES) ?? [];
-  lsSet(LS.SALES, [sale, ...current]);
+  const current = lsGet<Sale[]>(LS.SALES(companyId)) ?? [];
+  lsSet(LS.SALES(companyId), [sale, ...current]);
 }
 
-export async function deleteSales(isOnline: boolean): Promise<void> {
+export async function deleteSales(isOnline: boolean, companyId: string): Promise<void> {
   if (isOnline && supabase) {
-    // CASCADE apaga sale_items e sale_payments automaticamente
-    const { error } = await supabase.from('sales').delete().neq('id', '');
+    const { error } = await supabase
+      .from('sales')
+      .delete()
+      .eq('company_id', companyId);
     if (error) throw error;
   }
-  lsSet(LS.SALES, []);
+  lsSet(LS.SALES(companyId), []);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SESSÕES DE CAIXA
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export async function fetchCashData(isOnline: boolean): Promise<{
+export async function fetchCashData(
+  isOnline: boolean,
+  companyId: string
+): Promise<{
   register: CashRegister;
   pastSessions: CashRegisterSession[];
 }> {
@@ -383,17 +469,17 @@ export async function fetchCashData(isOnline: boolean): Promise<{
     openedBy: null,
     startingCash: 0,
     movements: [],
+    company_id: companyId,
   };
 
   if (isOnline && supabase) {
-    // Buscar todas as sessões
     const { data: sessions, error: sessErr } = await supabase
       .from('cash_sessions')
       .select('*')
+      .eq('company_id', companyId)
       .order('opened_at', { ascending: false });
     if (sessErr) throw sessErr;
 
-    // Buscar todas as movimentações
     const { data: movements, error: movErr } = await supabase
       .from('cash_movements')
       .select('*')
@@ -422,6 +508,7 @@ export async function fetchCashData(isOnline: boolean): Promise<{
         openedBy: openSession.opened_by,
         startingCash: Number(openSession.starting_cash),
         movements: sessionMovements,
+        company_id: companyId,
       };
     }
 
@@ -456,23 +543,25 @@ export async function fetchCashData(isOnline: boolean): Promise<{
           finalCash: Number(s.final_cash ?? 0),
           notes: s.notes ?? undefined,
           movements: sessionMovements,
+          company_id: companyId,
         };
       });
 
-    lsSet(LS.CASH_REGISTER, register);
-    lsSet(LS.PAST_SESSIONS, pastSessions);
+    lsSet(LS.CASH_REGISTER(companyId), register);
+    lsSet(LS.PAST_SESSIONS(companyId), pastSessions);
 
     return { register, pastSessions };
   }
 
   return {
-    register: lsGet<CashRegister>(LS.CASH_REGISTER) ?? emptyRegister,
-    pastSessions: lsGet<CashRegisterSession[]>(LS.PAST_SESSIONS) ?? [],
+    register: lsGet<CashRegister>(LS.CASH_REGISTER(companyId)) ?? emptyRegister,
+    pastSessions: lsGet<CashRegisterSession[]>(LS.PAST_SESSIONS(companyId)) ?? [],
   };
 }
 
 export async function openCashSession(
   isOnline: boolean,
+  companyId: string,
   sessionId: string,
   openedAt: string,
   openedBy: string,
@@ -491,6 +580,7 @@ export async function openCashSession(
     total_sangrias: 0,
     total_sales: 0,
     final_cash: 0,
+    company_id: companyId,
   };
 
   if (isOnline && supabase) {
@@ -526,6 +616,7 @@ export async function insertCashMovement(
 
 export async function closeCashSession(
   isOnline: boolean,
+  companyId: string,
   sessionId: string,
   closedAt: string,
   closedBy: string,
@@ -559,7 +650,8 @@ export async function closeCashSession(
     const { error } = await supabase
       .from('cash_sessions')
       .update(update)
-      .eq('id', sessionId);
+      .eq('id', sessionId)
+      .eq('company_id', companyId);
     if (error) throw error;
   } else {
     enqueue('UPDATE_CASH_SESSION', 'cash_sessions', update as Record<string, unknown>, {
@@ -569,17 +661,19 @@ export async function closeCashSession(
   }
 }
 
-export async function deleteAllCashSessions(isOnline: boolean): Promise<void> {
+export async function deleteAllCashSessions(isOnline: boolean, companyId: string): Promise<void> {
   if (isOnline && supabase) {
-    await supabase.from('cash_sessions').delete().neq('id', '');
+    await supabase.from('cash_sessions').delete().eq('company_id', companyId);
   }
-  lsSet(LS.CASH_REGISTER, {
+  const emptyRegister: CashRegister = {
     id: null,
     isOpen: false,
     openedAt: null,
     openedBy: null,
     startingCash: 0,
     movements: [],
-  });
-  lsSet(LS.PAST_SESSIONS, []);
+    company_id: companyId,
+  };
+  lsSet(LS.CASH_REGISTER(companyId), emptyRegister);
+  lsSet(LS.PAST_SESSIONS(companyId), []);
 }

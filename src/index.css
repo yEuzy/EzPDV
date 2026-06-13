@@ -1,38 +1,46 @@
 /* EzPDV - Custom Design System */
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap');
 
+/* ─── Tema padrão: Gelato (fallback) ─────────────────────────────────────── */
 :root {
-  --primary: #ff6b8b;
-  --primary-hover: #ff4d73;
-  --primary-light: #ffebee;
-  --secondary: #ffd166;
+  --primary:         #ff6b8b;
+  --primary-hover:   #ff4d73;
+  --primary-light:   #ffebee;
+  --secondary:       #ffd166;
   --secondary-light: #fff9e6;
-  --accent: #4cc9f0;
-  --accent-hover: #37b7de;
-  --accent-light: #eefcff;
-  --mint: #06d6a0;
-  --mint-light: #e6fbf5;
-  --bg-app: #fcf8f5;
-  --card-bg: #ffffff;
-  --text-dark: #2c2f3b;
-  --text-light: #7c8295;
-  --border-color: #f1eae4;
-  --danger: #ef476f;
-  
+  --accent:          #4cc9f0;
+  --accent-hover:    #37b7de;
+  --accent-light:    #eefcff;
+  --mint:            #06d6a0;
+  --mint-light:      #e6fbf5;
+  --bg-app:          #fcf8f5;
+  --card-bg:         #ffffff;
+  --text-dark:       #2c2f3b;
+  --text-light:      #7c8295;
+  --border-color:    #f1eae4;
+  --danger:          #ef476f;
+  --shadow-hover:    0 20px 48px rgba(255, 107, 139, 0.15);
+  --scrollbar-thumb: #e0d5cd;
+  --scrollbar-hover: #ccc1b7;
+
   --radius-sm: 8px;
   --radius-md: 16px;
   --radius-lg: 24px;
   --radius-xl: 32px;
-  
-  --shadow-sm: 0 4px 12px rgba(44, 47, 59, 0.03);
-  --shadow-md: 0 8px 24px rgba(44, 47, 59, 0.06);
-  --shadow-lg: 0 16px 40px rgba(44, 47, 59, 0.1);
-  --shadow-hover: 0 20px 48px rgba(255, 107, 139, 0.15);
-  
-  --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+  --shadow-sm:   0 4px 12px rgba(44, 47, 59, 0.03);
+  --shadow-md:   0 8px 24px rgba(44, 47, 59, 0.06);
+  --shadow-lg:   0 16px 40px rgba(44, 47, 59, 0.1);
+
+  --transition-fast:   0.2s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  
+
   --font-family: 'Outfit', 'Quicksand', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* ─── Transição suave ao trocar tema ─────────────────────────────────────── */
+body, .sidebar, .card, .mobile-header, .mobile-footer-nav {
+  transition: background-color 0.35s ease, border-color 0.35s ease, color 0.35s ease;
 }
 
 * {
@@ -68,12 +76,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #e0d5cd;
+  background: var(--scrollbar-thumb);
   border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #ccc1b7;
+  background: var(--scrollbar-hover);
 }
 
 /* Layout container */

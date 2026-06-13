@@ -1,3 +1,15 @@
+// ─── Empresa ───────────────────────────────────────────────────────────────────
+export type ThemeId = 'gelato' | 'sky' | 'forest' | 'ember';
+
+export interface Company {
+  id: string;
+  name: string;
+  tagline: string;
+  theme_id: ThemeId;
+  icon: string;
+  created_at?: string;
+}
+
 // ─── Produto ───────────────────────────────────────────────────────────────────
 export interface Product {
   id: string;
@@ -6,6 +18,7 @@ export interface Product {
   category: string;
   color: string;
   description?: string;
+  company_id: string;
 }
 
 // ─── Item do Carrinho ──────────────────────────────────────────────────────────
@@ -29,6 +42,7 @@ export interface Sale {
   total: number;
   payments: SalePayment[];
   soldBy: string;
+  company_id: string;
 }
 
 // ─── Categoria ────────────────────────────────────────────────────────────────
@@ -37,6 +51,7 @@ export interface Category {
   name: string;
   icon: string;
   sort_order?: number;
+  company_id: string;
 }
 
 // ─── Operador / Usuário ───────────────────────────────────────────────────────
@@ -46,6 +61,7 @@ export interface Operator {
   role: 'operator' | 'admin';
   pin: string; // PIN de 4 dígitos (nunca enviar ao cliente em produção)
   created_at?: string;
+  company_id: string;
 }
 
 // ─── Movimentação de Caixa ────────────────────────────────────────────────────
@@ -66,6 +82,7 @@ export interface CashRegister {
   startingCash: number;
   movements: CashMovement[];
   id?: string | null;
+  company_id?: string;
 }
 
 // ─── Sessão de Caixa Encerrada ────────────────────────────────────────────────
@@ -86,4 +103,5 @@ export interface CashRegisterSession {
   finalCash: number;
   notes?: string;
   movements: CashMovement[];
+  company_id?: string;
 }

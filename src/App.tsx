@@ -9,15 +9,19 @@ import type {
   CashRegister,
   CashRegisterSession,
   Category,
+  Company,
+  ThemeId,
 } from './types';
 import { PosView } from './components/PosView';
 import { ProductsView } from './components/ProductsView';
 import { ReportsView } from './components/ReportsView';
 import { LoginScreen } from './components/LoginScreen';
+import { MasterAdminPanel } from './components/MasterAdminPanel';
 import { useConnectionStatus } from './utils/connectionMonitor';
 import { syncQueue, getPendingCount } from './utils/offlineQueue';
 import { LS } from './utils/db';
 import * as DB from './utils/db';
+import { applyTheme, getStoredTheme, THEMES } from './utils/themes';
 import {
   ShoppingBag,
   Tag,
@@ -27,8 +31,9 @@ import {
   RefreshCw,
   WifiOff,
   Wifi,
-  IceCreamCone
+  Store,
 } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -49,10 +54,33 @@ function generateId(): string {
   return Math.random().toString(36).substring(2, 9).toUpperCase();
 }
 
+// Resolve ícone da empresa pelo nome (string)
+function CompanyIcon({ name, size = 24 }: { name?: string; size?: number }) {
+  const iconName = name || 'Store';
+  const Icon = (LucideIcons as unknown as Record<string, React.FC<{ size?: number }>>)[iconName];
+  if (!Icon) return <Store size={size} />;
+  return <Icon size={size} />;
+}
+
+// ─── Constante do .env ────────────────────────────────────────────────────────
+
+const COMPANY_ID = import.meta.env.VITE_COMPANY_ID as string | undefined;
+
 // ─── App ──────────────────────────────────────────────────────────────────────
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'pos' | 'products' | 'reports'>('pos');
+
+  // Painel master (acessível em qualquer estado da app)
+  const [showMasterPanel, setShowMasterPanel] = useState(false);
+
+  // Modal de Temas (apenas para admin)
+  const [showThemeModal, setShowThemeModal] = useState(false);
+
+  // Empresa atual
+  const [currentCompany, setCurrentCompany] = useState<Company | null>(null);
+  const [isLoadingCompany, setIsLoadingCompany] = useState(true);
+  const [companyError, setCompanyError] = useState<string | null>(null);
 
   // Data states
   const [products, setProducts] = useState<Product[]>([]);
@@ -82,31 +110,96 @@ const App: React.FC = () => {
   const [isLoadingOperators, setIsLoadingOperators] = useState(true);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
-  // Connection status (ping periódico ao Supabase)
+  // Connection status
   const { isOnline, isChecking } = useConnectionStatus();
   const prevOnlineRef = useRef<boolean | null>(null);
+
+  // ─── Atalho global Ctrl+Shift+M → painel master ───────────────────────────
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'M') {
+        e.preventDefault();
+        setShowMasterPanel(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // ─── Carregar empresa do Supabase ──────────────────────────────────────────
+
+  const loadCompany = useCallback(async () => {
+    setIsLoadingCompany(true);
+    setCompanyError(null);
+    try {
+      if (!COMPANY_ID) {
+        const cached = lsGet<Company>(LS.COMPANY);
+        if (cached) {
+          setCurrentCompany(cached);
+          applyTheme(getStoredTheme(cached.id, cached.theme_id));
+        } else {
+          setCompanyError('VITE_COMPANY_ID não configurado no .env.');
+        }
+        return;
+      }
+      try {
+        const company = await DB.fetchCompany(COMPANY_ID);
+        if (company) {
+          setCurrentCompany(company);
+          lsSet(LS.COMPANY, company);
+          applyTheme(getStoredTheme(company.id, company.theme_id));
+        } else {
+          setCompanyError(`Empresa "${COMPANY_ID}" não encontrada. Abra o painel admin e crie-a.`);
+        }
+      } catch {
+        const cached = lsGet<Company>(LS.COMPANY);
+        if (cached && cached.id === COMPANY_ID) {
+          setCurrentCompany(cached);
+          applyTheme(getStoredTheme(cached.id, cached.theme_id));
+        } else {
+          setCompanyError('Sem conexão e sem cache. Conecte-se à internet para o primeiro acesso.');
+        }
+      }
+    } finally {
+      setIsLoadingCompany(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isChecking) return;
+
+    const isFirstLoad = prevOnlineRef.current === null;
+    const justCameOnline = prevOnlineRef.current === false && isOnline === true;
+
+    if (isFirstLoad || justCameOnline || !currentCompany) {
+      loadCompany();
+    }
+
+    prevOnlineRef.current = isOnline;
+  }, [isChecking, isOnline, currentCompany, loadCompany]);
+
+
+  const companyId = currentCompany?.id ?? COMPANY_ID ?? '';
 
   // ─── Carregamento inicial de operadores ───────────────────────────────────
 
   const initialOpsDone = useRef(false);
   useEffect(() => {
-    // Aguarda o ping de conexão terminar antes de tentar carregar
-    if (isChecking) return;
+    if (isChecking || !currentCompany) return;
 
     const loadOperators = async () => {
       setIsLoadingOperators(true);
       try {
-        const ops = await DB.fetchOperators(isOnline);
+        const ops = await DB.fetchOperators(isOnline, companyId);
         if (ops.length > 0) {
           setOperators(ops);
         } else if (!isOnline) {
-          // Sem conexão e sem cache: mostra loading até reconectar
-          const cached = lsGet<Operator[]>(LS.OPERATORS);
+          const cached = lsGet<Operator[]>(LS.OPERATORS(companyId));
           if (cached && cached.length > 0) setOperators(cached);
         }
       } catch (err) {
         console.warn('[App] Erro ao carregar operadores:', err);
-        const cached = lsGet<Operator[]>(LS.OPERATORS);
+        const cached = lsGet<Operator[]>(LS.OPERATORS(companyId));
         if (cached && cached.length > 0) setOperators(cached);
       } finally {
         setIsLoadingOperators(false);
@@ -114,75 +207,61 @@ const App: React.FC = () => {
       }
     };
     loadOperators();
-  }, [isChecking, isOnline]);
+  }, [isChecking, isOnline, currentCompany]);
 
   // ─── Carregamento inicial de dados (produtos, vendas, caixa) ─────────────
 
+  const defaultCategories: Category[] = [
+    { id: 'all', name: 'Todos', icon: 'Grid', sort_order: 0, company_id: companyId },
+  ];
+
   const loadAllData = useCallback(
     async (online: boolean) => {
+      if (!companyId) return;
       try {
         const [prods, salesData, cashData, catsData] = await Promise.all([
-          DB.fetchProducts(online),
-          DB.fetchSales(online),
-          DB.fetchCashData(online),
-          DB.fetchCategories(online),
+          DB.fetchProducts(online, companyId),
+          DB.fetchSales(online, companyId),
+          DB.fetchCashData(online, companyId),
+          DB.fetchCategories(online, companyId),
         ]);
         setProducts(prods);
         setSales(salesData);
         setCashRegister(cashData.register);
         setPastSessions(cashData.pastSessions);
-        setCategories(catsData.length > 0 ? catsData : [
-          { id: 'all', name: 'Todos', icon: 'IceCreamCone', sort_order: 0 },
-          { id: 'casquinhas', name: 'Casquinhas', icon: 'IceCreamCone', sort_order: 1 },
-          { id: 'milkshakes', name: 'Milkshakes', icon: 'CupSoda', sort_order: 2 },
-          { id: 'sundaes', name: 'Sundaes & Taças', icon: 'IceCreamBowl', sort_order: 3 },
-          { id: 'bebidas', name: 'Bebidas', icon: 'CupSoda', sort_order: 4 }
-        ]);
+        setCategories(catsData.length > 0 ? catsData : defaultCategories);
       } catch (err) {
         console.warn('[App] Erro ao carregar dados:', err);
-        // Fallback para cache local se não conseguiu do Supabase
-        const cachedProducts = lsGet<Product[]>(LS.PRODUCTS) ?? [];
-        const cachedSales = lsGet<Sale[]>(LS.SALES) ?? [];
-        const cachedRegister = lsGet<CashRegister>(LS.CASH_REGISTER) ?? {
-          id: null,
-          isOpen: false,
-          openedAt: null,
-          openedBy: null,
-          startingCash: 0,
-          movements: [],
+        const cachedProducts = lsGet<Product[]>(LS.PRODUCTS(companyId)) ?? [];
+        const cachedSales = lsGet<Sale[]>(LS.SALES(companyId)) ?? [];
+        const cachedRegister = lsGet<CashRegister>(LS.CASH_REGISTER(companyId)) ?? {
+          id: null, isOpen: false, openedAt: null, openedBy: null, startingCash: 0, movements: [],
         };
-        const cachedSessions = lsGet<CashRegisterSession[]>(LS.PAST_SESSIONS) ?? [];
-        const cachedCategories = lsGet<Category[]>(LS.CATEGORIES) ?? [];
+        const cachedSessions = lsGet<CashRegisterSession[]>(LS.PAST_SESSIONS(companyId)) ?? [];
+        const cachedCategories = lsGet<Category[]>(LS.CATEGORIES(companyId)) ?? [];
         setProducts(cachedProducts);
         setSales(cachedSales);
         setCashRegister(cachedRegister);
         setPastSessions(cachedSessions);
-        setCategories(cachedCategories.length > 0 ? cachedCategories : [
-          { id: 'all', name: 'Todos', icon: 'IceCreamCone', sort_order: 0 },
-          { id: 'casquinhas', name: 'Casquinhas', icon: 'IceCreamCone', sort_order: 1 },
-          { id: 'milkshakes', name: 'Milkshakes', icon: 'CupSoda', sort_order: 2 },
-          { id: 'sundaes', name: 'Sundaes & Taças', icon: 'IceCreamBowl', sort_order: 3 },
-          { id: 'bebidas', name: 'Bebidas', icon: 'CupSoda', sort_order: 4 }
-        ]);
+        setCategories(cachedCategories.length > 0 ? cachedCategories : defaultCategories);
       }
     },
-    []
+    [companyId]
   );
 
-  // Primeira carga: aguarda o status de conexão estar definido
+  // Primeira carga
   const initialLoadDone = useRef(false);
   useEffect(() => {
-    if (!isChecking && !initialLoadDone.current) {
+    if (!isChecking && currentCompany && !initialLoadDone.current) {
       initialLoadDone.current = true;
       loadAllData(isOnline);
     }
-  }, [isChecking, isOnline, loadAllData]);
+  }, [isChecking, isOnline, currentCompany, loadAllData]);
 
   // ─── Sincronização automática ao reconectar ───────────────────────────────
 
   useEffect(() => {
-    if (prevOnlineRef.current === false && isOnline) {
-      // Acabou de reconectar
+    if (prevOnlineRef.current === false && isOnline && currentCompany) {
       const sync = async () => {
         const count = getPendingCount();
         if (count > 0) {
@@ -190,7 +269,6 @@ const App: React.FC = () => {
           const synced = await syncQueue();
           if (synced > 0) {
             setSyncMessage(`✅ ${synced} operação(ões) sincronizada(s) com sucesso!`);
-            // Recarregar dados frescos do Supabase
             await loadAllData(true);
           }
           setTimeout(() => setSyncMessage(null), 4000);
@@ -200,18 +278,19 @@ const App: React.FC = () => {
       sync();
     }
     prevOnlineRef.current = isOnline;
-  }, [isOnline, loadAllData]);
+  }, [isOnline, loadAllData, currentCompany]);
 
-  // Atualizar contagem de pendentes
   useEffect(() => {
     setPendingOps(getPendingCount());
   }, [isOnline]);
 
   // Restaurar usuário logado do LocalStorage
   useEffect(() => {
-    const stored = lsGet<Operator>(LS.CURRENT_USER);
-    if (stored) setCurrentUser(stored);
-  }, []);
+    if (companyId) {
+      const stored = lsGet<Operator>(LS.CURRENT_USER(companyId));
+      if (stored) setCurrentUser(stored);
+    }
+  }, [companyId]);
 
   // ─── Login / Logout ───────────────────────────────────────────────────────
 
@@ -219,7 +298,7 @@ const App: React.FC = () => {
     const operator = operators.find(op => op.id === operatorId);
     if (operator && operator.pin === pin) {
       setCurrentUser(operator);
-      lsSet(LS.CURRENT_USER, operator);
+      lsSet(LS.CURRENT_USER(companyId), operator);
       return true;
     }
     return false;
@@ -227,15 +306,15 @@ const App: React.FC = () => {
 
   const handleLogout = () => {
     setCurrentUser(null);
-    localStorage.removeItem(LS.CURRENT_USER);
+    if (companyId) localStorage.removeItem(LS.CURRENT_USER(companyId));
   };
 
   // ─── Operadores CRUD ──────────────────────────────────────────────────────
 
   const handleAddOperator = async (operatorData: Omit<Operator, 'id' | 'created_at'>): Promise<void> => {
-    const newOp: Operator = { ...operatorData, id: `op-${generateId()}` };
+    const newOp: Operator = { ...operatorData, id: `op-${generateId()}`, company_id: companyId };
     try {
-      await DB.addOperator(isOnline, newOp);
+      await DB.addOperator(isOnline, companyId, newOp);
       setOperators(prev => [...prev, newOp]);
     } catch (err: any) {
       alert('Erro ao adicionar operador: ' + err.message);
@@ -244,12 +323,11 @@ const App: React.FC = () => {
 
   const handleUpdateOperator = async (operator: Operator): Promise<void> => {
     try {
-      await DB.updateOperator(isOnline, operator);
+      await DB.updateOperator(isOnline, companyId, operator);
       setOperators(prev => prev.map(o => (o.id === operator.id ? operator : o)));
-      // Atualiza currentUser se for o mesmo
       if (currentUser?.id === operator.id) {
         setCurrentUser(operator);
-        lsSet(LS.CURRENT_USER, operator);
+        lsSet(LS.CURRENT_USER(companyId), operator);
       }
     } catch (err: any) {
       alert('Erro ao atualizar operador: ' + err.message);
@@ -262,7 +340,7 @@ const App: React.FC = () => {
       return;
     }
     try {
-      await DB.deleteOperator(isOnline, id);
+      await DB.deleteOperator(isOnline, companyId, id);
       setOperators(prev => prev.filter(o => o.id !== id));
     } catch (err: any) {
       alert('Erro ao excluir operador: ' + err.message);
@@ -277,18 +355,13 @@ const App: React.FC = () => {
     const openedBy = currentUser?.name ?? 'Caixa';
 
     const newRegister: CashRegister = {
-      id: sessionId,
-      isOpen: true,
-      openedAt,
-      openedBy,
-      startingCash,
-      movements: [],
+      id: sessionId, isOpen: true, openedAt, openedBy, startingCash, movements: [], company_id: companyId,
     };
 
     try {
-      await DB.openCashSession(isOnline, sessionId, openedAt, openedBy, startingCash);
+      await DB.openCashSession(isOnline, companyId, sessionId, openedAt, openedBy, startingCash);
       setCashRegister(newRegister);
-      lsSet(LS.CASH_REGISTER, newRegister);
+      lsSet(LS.CASH_REGISTER(companyId), newRegister);
     } catch (err: any) {
       alert('Erro ao abrir caixa: ' + err.message);
     }
@@ -302,9 +375,7 @@ const App: React.FC = () => {
     if (!cashRegister.isOpen || !cashRegister.id) return;
 
     const newMovement: CashMovement = {
-      id: generateId(),
-      type,
-      amount,
+      id: generateId(), type, amount,
       timestamp: new Date().toISOString(),
       operator: currentUser?.name ?? 'Caixa',
       reason: reason?.trim() || undefined,
@@ -315,7 +386,7 @@ const App: React.FC = () => {
       const updatedMovements = [...cashRegister.movements, newMovement];
       const updated: CashRegister = { ...cashRegister, movements: updatedMovements };
       setCashRegister(updated);
-      lsSet(LS.CASH_REGISTER, updated);
+      lsSet(LS.CASH_REGISTER(companyId), updated);
     } catch (err: any) {
       alert('Erro ao registrar movimentação: ' + err.message);
     }
@@ -340,11 +411,9 @@ const App: React.FC = () => {
     const debitSales = sum('Cartão de Débito');
 
     const totalReforcos = cashRegister.movements
-      .filter(m => m.type === 'reforco')
-      .reduce((a, m) => a + m.amount, 0);
+      .filter(m => m.type === 'reforco').reduce((a, m) => a + m.amount, 0);
     const totalSangrias = cashRegister.movements
-      .filter(m => m.type === 'sangria')
-      .reduce((a, m) => a + m.amount, 0);
+      .filter(m => m.type === 'sangria').reduce((a, m) => a + m.amount, 0);
 
     const totalSales = sessionSales.reduce((a, s) => a + s.total, 0);
     const finalCash = cashRegister.startingCash + cashSales + totalReforcos - totalSangrias;
@@ -353,20 +422,10 @@ const App: React.FC = () => {
     const closedBy = currentUser?.name ?? 'Caixa';
     const sessionId = cashRegister.id;
 
-    const summary = {
-      cashSales,
-      pixSales,
-      creditSales,
-      debitSales,
-      totalReforcos,
-      totalSangrias,
-      totalSales,
-      finalCash,
-      notes: notes?.trim() || undefined,
-    };
+    const summary = { cashSales, pixSales, creditSales, debitSales, totalReforcos, totalSangrias, totalSales, finalCash, notes: notes?.trim() || undefined };
 
     try {
-      await DB.closeCashSession(isOnline, sessionId, closedAt, closedBy, summary);
+      await DB.closeCashSession(isOnline, companyId, sessionId, closedAt, closedBy, summary);
 
       const newSession: CashRegisterSession = {
         id: sessionId,
@@ -377,22 +436,18 @@ const App: React.FC = () => {
         startingCash: cashRegister.startingCash,
         ...summary,
         movements: cashRegister.movements,
+        company_id: companyId,
       };
 
       const updatedSessions = [newSession, ...pastSessions];
       setPastSessions(updatedSessions);
-      lsSet(LS.PAST_SESSIONS, updatedSessions);
+      lsSet(LS.PAST_SESSIONS(companyId), updatedSessions);
 
       const resetRegister: CashRegister = {
-        id: null,
-        isOpen: false,
-        openedAt: null,
-        openedBy: null,
-        startingCash: 0,
-        movements: [],
+        id: null, isOpen: false, openedAt: null, openedBy: null, startingCash: 0, movements: [], company_id: companyId,
       };
       setCashRegister(resetRegister);
-      lsSet(LS.CASH_REGISTER, resetRegister);
+      lsSet(LS.CASH_REGISTER(companyId), resetRegister);
       clearCart();
     } catch (err: any) {
       alert('Erro ao fechar caixa: ' + err.message);
@@ -428,9 +483,7 @@ const App: React.FC = () => {
     );
 
   const updateNotes = (productId: string, notes: string) =>
-    setCart(prev =>
-      prev.map(i => (i.product.id === productId ? { ...i, notes } : i))
-    );
+    setCart(prev => prev.map(i => (i.product.id === productId ? { ...i, notes } : i)));
 
   const clearCart = () => setCart([]);
 
@@ -447,16 +500,13 @@ const App: React.FC = () => {
     const dateStr = new Date().toISOString();
 
     const newSale: Sale = {
-      id: saleId,
-      date: dateStr,
-      items: [...cart],
-      total,
-      payments,
+      id: saleId, date: dateStr, items: [...cart], total, payments,
       soldBy: currentUser?.name ?? 'Caixa',
+      company_id: companyId,
     };
 
     try {
-      await DB.insertSale(isOnline, newSale, cashRegister.id ?? null);
+      await DB.insertSale(isOnline, companyId, newSale, cashRegister.id ?? null);
       setSales(prev => [newSale, ...prev]);
       setPendingOps(getPendingCount());
       setLastSaleTotal(total);
@@ -470,9 +520,9 @@ const App: React.FC = () => {
   // ─── Produtos CRUD ────────────────────────────────────────────────────────
 
   const handleAddProduct = async (productData: Omit<Product, 'id'>) => {
-    const newProduct: Product = { ...productData, id: generateId() };
+    const newProduct: Product = { ...productData, id: generateId(), company_id: companyId };
     try {
-      await DB.addProduct(isOnline, newProduct);
+      await DB.addProduct(isOnline, companyId, newProduct);
       setProducts(prev => [...prev, newProduct]);
     } catch (err: any) {
       alert('Erro ao adicionar produto: ' + err.message);
@@ -481,10 +531,8 @@ const App: React.FC = () => {
 
   const handleUpdateProduct = async (updatedProduct: Product) => {
     try {
-      await DB.updateProduct(isOnline, updatedProduct);
-      setProducts(prev =>
-        prev.map(p => (p.id === updatedProduct.id ? updatedProduct : p))
-      );
+      await DB.updateProduct(isOnline, companyId, updatedProduct);
+      setProducts(prev => prev.map(p => (p.id === updatedProduct.id ? updatedProduct : p)));
     } catch (err: any) {
       alert('Erro ao atualizar produto: ' + err.message);
     }
@@ -492,7 +540,7 @@ const App: React.FC = () => {
 
   const handleDeleteProduct = async (id: string) => {
     try {
-      await DB.deleteProduct(isOnline, id);
+      await DB.deleteProduct(isOnline, companyId, id);
       setProducts(prev => prev.filter(p => p.id !== id));
     } catch (err: any) {
       alert('Erro ao excluir produto: ' + err.message);
@@ -502,9 +550,9 @@ const App: React.FC = () => {
   // ─── Categorias CRUD ──────────────────────────────────────────────────────
 
   const handleAddCategory = async (categoryData: Omit<Category, 'id'>) => {
-    const newCategory: Category = { ...categoryData, id: `cat-${generateId()}` };
+    const newCategory: Category = { ...categoryData, id: `cat-${generateId()}`, company_id: companyId };
     try {
-      await DB.addCategory(isOnline, newCategory);
+      await DB.addCategory(isOnline, companyId, newCategory);
       setCategories(prev => [...prev, newCategory]);
     } catch (err: any) {
       alert('Erro ao adicionar categoria: ' + err.message);
@@ -513,10 +561,8 @@ const App: React.FC = () => {
 
   const handleUpdateCategory = async (updatedCategory: Category) => {
     try {
-      await DB.updateCategory(isOnline, updatedCategory);
-      setCategories(prev =>
-        prev.map(c => (c.id === updatedCategory.id ? updatedCategory : c))
-      );
+      await DB.updateCategory(isOnline, companyId, updatedCategory);
+      setCategories(prev => prev.map(c => (c.id === updatedCategory.id ? updatedCategory : c)));
     } catch (err: any) {
       alert('Erro ao atualizar categoria: ' + err.message);
     }
@@ -524,7 +570,7 @@ const App: React.FC = () => {
 
   const handleDeleteCategory = async (id: string) => {
     try {
-      await DB.deleteCategory(isOnline, id);
+      await DB.deleteCategory(isOnline, companyId, id);
       setCategories(prev => prev.filter(c => c.id !== id));
     } catch (err: any) {
       alert('Erro ao excluir categoria: ' + err.message);
@@ -535,7 +581,7 @@ const App: React.FC = () => {
 
   const handleClearSales = async () => {
     try {
-      await DB.deleteSales(isOnline);
+      await DB.deleteSales(isOnline, companyId);
       setSales([]);
     } catch (err: any) {
       alert('Erro ao limpar vendas: ' + err.message);
@@ -545,30 +591,19 @@ const App: React.FC = () => {
   const handleResetAllData = async () => {
     try {
       if (isOnline) {
-        await DB.deleteSales(isOnline);
-        await DB.deleteAllCashSessions(isOnline);
+        await DB.deleteSales(isOnline, companyId);
+        await DB.deleteAllCashSessions(isOnline, companyId);
       }
       setSales([]);
       setCart([]);
-      setCashRegister({
-        id: null,
-        isOpen: false,
-        openedAt: null,
-        openedBy: null,
-        startingCash: 0,
-        movements: [],
-      });
+      const resetRegister: CashRegister = {
+        id: null, isOpen: false, openedAt: null, openedBy: null, startingCash: 0, movements: [], company_id: companyId,
+      };
+      setCashRegister(resetRegister);
       setPastSessions([]);
-      lsSet(LS.SALES, []);
-      lsSet(LS.PAST_SESSIONS, []);
-      lsSet(LS.CASH_REGISTER, {
-        id: null,
-        isOpen: false,
-        openedAt: null,
-        openedBy: null,
-        startingCash: 0,
-        movements: [],
-      });
+      lsSet(LS.SALES(companyId), []);
+      lsSet(LS.PAST_SESSIONS(companyId), []);
+      lsSet(LS.CASH_REGISTER(companyId), resetRegister);
     } catch (err: any) {
       alert('Erro ao redefinir dados: ' + err.message);
     }
@@ -577,37 +612,119 @@ const App: React.FC = () => {
   // ─── Derivados do caixa ───────────────────────────────────────────────────
 
   const currentCashSales = sales
-    .filter(
-      s => cashRegister.openedAt && new Date(s.date) >= new Date(cashRegister.openedAt)
-    )
+    .filter(s => cashRegister.openedAt && new Date(s.date) >= new Date(cashRegister.openedAt))
     .reduce((sum, s) => {
       const p = s.payments?.find(p => p.method === 'Dinheiro');
       return sum + (p ? p.amount : 0);
     }, 0);
 
   const totalReforcos = cashRegister.movements
-    .filter(m => m.type === 'reforco')
-    .reduce((sum, m) => sum + m.amount, 0);
+    .filter(m => m.type === 'reforco').reduce((sum, m) => sum + m.amount, 0);
   const totalSangrias = cashRegister.movements
-    .filter(m => m.type === 'sangria')
-    .reduce((sum, m) => sum + m.amount, 0);
+    .filter(m => m.type === 'sangria').reduce((sum, m) => sum + m.amount, 0);
 
-  const currentCash =
-    cashRegister.startingCash + currentCashSales + totalReforcos - totalSangrias;
+  const currentCash = cashRegister.startingCash + currentCashSales + totalReforcos - totalSangrias;
+
+  // ─── Sempre renderizar o MasterAdminPanel acima dos early returns ──────────────────
+  // (evita reset de estado interno ao re-renderizar o App)
+  const masterPanelEl = showMasterPanel ? (
+    <MasterAdminPanel
+      onClose={() => {
+        setShowMasterPanel(false);
+        // Recarregar empresa apenas quando houver erro (empresa ainda não configurada)
+        if (companyError) loadCompany();
+      }}
+    />
+  ) : null;
+
+  // ─── Loading / Error de empresa ───────────────────────────────────────────
+
+  if (isLoadingCompany || (isChecking && !currentCompany)) {
+    return (
+      <>
+        {masterPanelEl}
+        <div style={{
+          height: '100dvh', display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center', gap: '16px',
+          background: 'var(--bg-app)', color: 'var(--text-light)',
+        }}>
+          <div style={{
+            width: '48px', height: '48px', borderRadius: '14px',
+            background: 'var(--primary-light)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Store size={24} color="var(--primary)" />
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontWeight: 700, fontSize: '16px', color: 'var(--text-dark)', marginBottom: '4px' }}>
+              EzPDV
+            </div>
+            <div style={{ fontSize: '13px' }}>Carregando empresa…</div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (companyError) {
+    return (
+      <>
+        {masterPanelEl}
+        <div style={{
+          height: '100dvh', display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center', gap: '16px',
+          background: 'var(--bg-app)', color: 'var(--text-light)',
+          padding: '32px', textAlign: 'center',
+        }}>
+          <div
+            style={{ fontSize: '40px', cursor: 'pointer', userSelect: 'none' }}
+            onClick={() => setShowMasterPanel(true)}
+            title="Clique para abrir o painel admin"
+          >
+            ⚠️
+          </div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: '16px', color: 'var(--danger)', marginBottom: '8px' }}>
+              Empresa não configurada
+            </div>
+            <div style={{ fontSize: '13px', maxWidth: '400px', lineHeight: 1.6 }}>{companyError}</div>
+          </div>
+          <button
+            onClick={() => setShowMasterPanel(true)}
+            style={{
+              marginTop: '8px', padding: '10px 20px',
+              background: 'transparent',
+              border: '1px solid var(--border-color)',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: '12px', color: 'var(--text-light)',
+              cursor: 'pointer', fontWeight: 600,
+            }}
+          >
+            🔑 Abrir Painel Admin (Ctrl+Shift+M)
+          </button>
+        </div>
+      </>
+    );
+  }
 
   // ─── Tela de login ────────────────────────────────────────────────────────
 
   if (!currentUser) {
     return (
-      <LoginScreen
-        operators={operators}
-        onLogin={handleLogin}
-        isLoading={isLoadingOperators || isChecking}
-      />
+      <>
+        {showMasterPanel && <MasterAdminPanel onClose={() => { setShowMasterPanel(false); }} />}
+        <LoginScreen
+          operators={operators}
+          company={currentCompany}
+          onLogin={handleLogin}
+          isLoading={isLoadingOperators || isChecking}
+          onOpenMasterPanel={() => setShowMasterPanel(true)}
+        />
+      </>
     );
   }
 
-  // ─── Render ───────────────────────────────────────────────────────────────
+  // ─── Render principal ─────────────────────────────────────────────────────
 
   return (
     <div className="app-container">
@@ -615,10 +732,12 @@ const App: React.FC = () => {
       <aside className="sidebar">
         <div>
           <div className="brand">
-            <div className="brand-icon" style={{ display: 'flex', alignItems: 'center' }}><IceCreamCone size={24} /></div>
+            <div className="brand-icon" style={{ display: 'flex', alignItems: 'center' }}>
+              <CompanyIcon name={currentCompany?.icon} size={24} />
+            </div>
             <div>
-              <span className="brand-name">EzPDV</span>
-              <span className="brand-tagline">Quiosque de Sorvete</span>
+              <span className="brand-name">{currentCompany?.name ?? 'EzPDV'}</span>
+              <span className="brand-tagline">{currentCompany?.tagline ?? ''}</span>
             </div>
           </div>
 
@@ -686,14 +805,9 @@ const App: React.FC = () => {
           {currentUser && (
             <div
               style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '4px',
-                backgroundColor: 'var(--bg-app)',
-                padding: '8px 12px',
-                borderRadius: 'var(--radius-md)',
-                width: '100%',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
+                backgroundColor: 'var(--bg-app)', padding: '8px 12px',
+                borderRadius: 'var(--radius-md)', width: '100%',
                 border: '1px solid var(--border-color)',
               }}
             >
@@ -703,67 +817,65 @@ const App: React.FC = () => {
               <strong style={{ fontSize: '14px', color: 'var(--text-dark)' }}>
                 {currentUser.name}
               </strong>
+              {currentUser.role === 'admin' && (
+                <button
+                  className="btn secondary"
+                  onClick={() => setShowThemeModal(true)}
+                  style={{
+                    padding: '4px 8px', fontSize: '11px', width: 'auto',
+                    flex: 'none', height: '24px', border: '1px solid var(--primary)',
+                    color: 'var(--primary)', marginTop: '4px', cursor: 'pointer',
+                    background: 'var(--primary-light)',
+                  }}
+                >
+                  🎨 Mudar Tema
+                </button>
+              )}
               <button
                 className="btn secondary"
                 onClick={handleLogout}
                 style={{
-                  padding: '4px 8px',
-                  fontSize: '11px',
-                  width: 'auto',
-                  flex: 'none',
-                  height: '24px',
-                  border: 'none',
-                  color: 'var(--danger)',
-                  marginTop: '4px',
-                  cursor: 'pointer',
+                  padding: '4px 8px', fontSize: '11px', width: 'auto',
+                  flex: 'none', height: '24px', border: 'none',
+                  color: 'var(--danger)', marginTop: '4px', cursor: 'pointer',
                 }}
               >
                 Sair / Deslogar
               </button>
             </div>
           )}
-          <span>EzPDV v2.0.0</span>
+          <span>EzPDV v2.1.0</span>
         </div>
       </aside>
 
       {/* Mobile Header */}
       <header className="mobile-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ display: 'flex', alignItems: 'center' }}><IceCreamCone size={24} color="var(--primary)" /></span>
+          <span style={{ display: 'flex', alignItems: 'center', color: 'var(--primary)' }}>
+            <CompanyIcon name={currentCompany?.icon} size={24} />
+          </span>
           <div>
-            <span
-              style={{
-                fontWeight: 700,
-                fontSize: '16px',
-                color: 'var(--primary)',
-                display: 'block',
-                lineHeight: 1.1,
-              }}
-            >
-              EzPDV
+            <span style={{ fontWeight: 700, fontSize: '16px', color: 'var(--primary)', display: 'block', lineHeight: 1.1 }}>
+              {currentCompany?.name ?? 'EzPDV'}
             </span>
-            <span
-              style={{
-                fontSize: '9px',
-                color: isOnline ? 'var(--mint)' : 'var(--danger)',
-                fontWeight: 700,
-              }}
-            >
+            <span style={{ fontSize: '9px', color: isOnline ? 'var(--mint)' : 'var(--danger)', fontWeight: 700 }}>
               {isChecking ? 'Verificando…' : isOnline ? 'Online' : 'Offline'}
             </span>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {currentUser?.role === 'admin' && (
+            <div
+              style={{ fontSize: '16px', cursor: 'pointer', background: 'var(--primary-light)', padding: '6px', borderRadius: '8px' }}
+              onClick={() => setShowThemeModal(true)}
+              title="Mudar Tema"
+            >
+              🎨
+            </div>
+          )}
           {currentUser && (
             <div style={{ textAlign: 'right' }}>
-              <span
-                style={{
-                  fontSize: '12px',
-                  fontWeight: 700,
-                  color: 'var(--text-dark)',
-                  display: 'block',
-                }}
-              >
+              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-dark)', display: 'block' }}>
                 {currentUser.name}
               </span>
               <span
@@ -774,15 +886,10 @@ const App: React.FC = () => {
               </span>
             </div>
           )}
-          <div
-            style={{
-              fontSize: '12px',
-              fontWeight: 600,
-              color: 'var(--text-light)',
-              borderLeft: '1px solid var(--border-color)',
-              paddingLeft: '10px',
-            }}
-          >
+          <div style={{
+            fontSize: '12px', fontWeight: 600, color: 'var(--text-light)',
+            borderLeft: '1px solid var(--border-color)', paddingLeft: '10px',
+          }}>
             {activeTab === 'pos' && 'Caixa'}
             {activeTab === 'products' && 'Produtos'}
             {activeTab === 'reports' && 'Relatórios'}
@@ -794,21 +901,11 @@ const App: React.FC = () => {
       {syncMessage && (
         <div
           style={{
-            position: 'fixed',
-            top: 12,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 9999,
-            backgroundColor: 'var(--primary)',
-            color: '#fff',
-            padding: '10px 20px',
-            borderRadius: 'var(--radius-md)',
-            fontSize: '13px',
-            fontWeight: 600,
-            boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
+            position: 'fixed', top: 12, left: '50%', transform: 'translateX(-50%)',
+            zIndex: 9999, backgroundColor: 'var(--primary)', color: '#fff',
+            padding: '10px 20px', borderRadius: 'var(--radius-md)',
+            fontSize: '13px', fontWeight: 600, boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+            display: 'flex', alignItems: 'center', gap: '8px',
           }}
         >
           <RefreshCw size={14} style={{ animation: syncMessage.startsWith('✅') ? 'none' : 'spin 1s linear infinite' }} />
@@ -826,10 +923,9 @@ const App: React.FC = () => {
               {activeTab === 'reports' && 'Faturamento e Relatórios'}
             </h1>
             <span className="page-subtitle">
-              {activeTab === 'pos' && 'Selecione os sorvetes e finalize o pagamento.'}
-              {activeTab === 'products' && 'Cadastre, edite ou exclua sorvetes do quiosque.'}
-              {activeTab === 'reports' &&
-                'Monitore o caixa diário e veja o histórico de transações.'}
+              {activeTab === 'pos' && 'Selecione os produtos e finalize o pagamento.'}
+              {activeTab === 'products' && 'Cadastre, edite ou exclua produtos.'}
+              {activeTab === 'reports' && 'Monitore o caixa diário e veja o histórico de transações.'}
             </span>
           </div>
         </div>
@@ -918,13 +1014,8 @@ const App: React.FC = () => {
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <button
               style={{
-                position: 'absolute',
-                right: '16px',
-                top: '16px',
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                color: 'var(--text-light)',
+                position: 'absolute', right: '16px', top: '16px',
+                background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-light)',
               }}
               onClick={() => setShowSuccessModal(false)}
             >
@@ -938,17 +1029,11 @@ const App: React.FC = () => {
               A venda foi registrada com sucesso
               {!isOnline ? ' (modo offline — será sincronizada ao reconectar)' : ' no banco de dados'}.
             </p>
-            <div
-              style={{
-                backgroundColor: 'var(--bg-app)',
-                padding: '16px',
-                borderRadius: 'var(--radius-md)',
-                marginBottom: '24px',
-              }}
-            >
-              <span style={{ fontSize: '13px', color: 'var(--text-light)', display: 'block' }}>
-                Valor Recebido
-              </span>
+            <div style={{
+              backgroundColor: 'var(--bg-app)', padding: '16px',
+              borderRadius: 'var(--radius-md)', marginBottom: '24px',
+            }}>
+              <span style={{ fontSize: '13px', color: 'var(--text-light)', display: 'block' }}>Valor Recebido</span>
               <strong style={{ fontSize: '24px', color: 'var(--mint)' }}>
                 R$ {lastSaleTotal.toFixed(2)}
               </strong>
@@ -960,6 +1045,60 @@ const App: React.FC = () => {
             >
               Iniciar Nova Venda
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Escolha de Temas (Apenas Admin) */}
+      {showThemeModal && currentCompany && (
+        <div className="modal-overlay" onClick={() => setShowThemeModal(false)} style={{ zIndex: 9999 }}>
+          <div className="modal-content" style={{ maxWidth: '480px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>🎨 Mudar Tema</h2>
+              <button className="btn-icon" onClick={() => setShowThemeModal(false)}>
+                <X size={24} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <p style={{ marginBottom: '16px', fontSize: '14px', color: 'var(--text-light)' }}>
+                Selecione um esquema de cores para o sistema da sua empresa. A mudança é salva e aplicada para todos os operadores instantaneamente.
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+                {THEMES.map(theme => (
+                  <button
+                    key={theme.id}
+                    onClick={async () => {
+                      if (!isOnline) {
+                        alert('Você precisa estar online para mudar o tema da empresa.');
+                        return;
+                      }
+                      try {
+                        const updatedCompany = { ...currentCompany, theme_id: theme.id as ThemeId };
+                        setCurrentCompany(updatedCompany);
+                        lsSet(LS.COMPANY, updatedCompany);
+                        applyTheme(getStoredTheme(updatedCompany.id, updatedCompany.theme_id));
+                        await DB.updateCompany(updatedCompany);
+                        setShowThemeModal(false);
+                      } catch (err: any) {
+                        alert('Erro ao atualizar tema: ' + err.message);
+                      }
+                    }}
+                    style={{
+                      padding: '16px', borderRadius: '12px', cursor: 'pointer', textAlign: 'left',
+                      background: currentCompany.theme_id === theme.id ? `${theme.vars['--primary']}25` : 'var(--bg-app)',
+                      border: currentCompany.theme_id === theme.id ? `2px solid ${theme.vars['--primary']}` : '1px solid var(--border-color)',
+                      display: 'flex', alignItems: 'center', gap: '12px',
+                    }}
+                  >
+                    <span style={{ fontSize: '24px' }}>{theme.emoji}</span>
+                    <div>
+                      <div style={{ fontSize: '15px', fontWeight: 700, color: theme.vars['--primary'] }}>{theme.name}</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-light)' }}>{theme.dark ? 'Modo Escuro' : 'Modo Claro'}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       )}

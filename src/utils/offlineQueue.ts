@@ -1,11 +1,12 @@
 /**
  * offlineQueue.ts
  * Fila de operações pendentes realizadas offline.
- * Persiste no LocalStorage e sincroniza com o Supabase ao reconectar.
+ * Persiste no LocalStorage por empresa e sincroniza com o Supabase ao reconectar.
  */
 import { supabase } from './supabaseClient';
 
-const QUEUE_KEY = 'ezpdv_offline_queue_v2';
+// A fila é global (não por empresa) — o company_id viaja no payload de cada operação
+const QUEUE_KEY = 'ezpdv_offline_queue_v3';
 
 export type OperationType =
   | 'INSERT_PRODUCT'
