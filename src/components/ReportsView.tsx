@@ -33,7 +33,7 @@ interface ReportsViewProps {
   onRegisterMovement: (type: 'sangria' | 'reforco', amount: number, reason?: string) => void;
   currentUser: Operator;
   operators: Operator[];
-  onAddOperator: (data: Omit<Operator, 'id' | 'created_at'>) => Promise<void>;
+  onAddOperator: (data: Omit<Operator, 'id' | 'created_at' | 'company_id'>) => Promise<void>;
   onUpdateOperator: (operator: Operator) => Promise<void>;
   onDeleteOperator: (id: string) => Promise<void>;
   isOnline: boolean;

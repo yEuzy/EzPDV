@@ -1,16 +1,17 @@
 import type { Product, Category } from '../types';
 
 export const INITIAL_CATEGORIES: Category[] = [
-  { id: 'all', name: 'Todos', icon: 'Grid' },
-  { id: 'casquinhas', name: 'Casquinhas', icon: 'Cone' },
-  { id: 'milkshakes', name: 'Milkshakes', icon: 'CupSoda' },
-  { id: 'sundaes', name: 'Sundaes & Taças', icon: 'Dessert' },
-  { id: 'bebidas', name: 'Bebidas', icon: 'Beer' }
+  { id: 'all', name: 'Todos', icon: 'Grid', company_id: '' },
+  { id: 'casquinhas', name: 'Casquinhas', icon: 'Cone', company_id: '' },
+  { id: 'milkshakes', name: 'Milkshakes', icon: 'CupSoda', company_id: '' },
+  { id: 'sundaes', name: 'Sundaes & Taças', icon: 'Dessert', company_id: '' },
+  { id: 'bebidas', name: 'Bebidas', icon: 'Beer', company_id: '' }
 ];
 
 export const INITIAL_PRODUCTS: Product[] = [
   {
     id: '1',
+    company_id: '',
     name: 'Casquinha Baunilha',
     price: 6.50,
     category: 'casquinhas',
@@ -19,6 +20,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   },
   {
     id: '2',
+    company_id: '',
     name: 'Casquinha Chocolate',
     price: 6.50,
     category: 'casquinhas',
@@ -27,6 +29,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   },
   {
     id: '3',
+    company_id: '',
     name: 'Casquinha Mista',
     price: 7.00,
     category: 'casquinhas',
@@ -35,6 +38,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   },
   {
     id: '4',
+    company_id: '',
     name: 'Cascão Trufado',
     price: 12.00,
     category: 'casquinhas',
@@ -43,6 +47,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   },
   {
     id: '5',
+    company_id: '',
     name: 'Milkshake Ovomaltine 500ml',
     price: 16.90,
     category: 'milkshakes',
@@ -51,6 +56,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   },
   {
     id: '6',
+    company_id: '',
     name: 'Milkshake Morango 500ml',
     price: 15.90,
     category: 'milkshakes',
@@ -59,6 +65,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   },
   {
     id: '7',
+    company_id: '',
     name: 'Milkshake Ninho com Nutella',
     price: 18.90,
     category: 'milkshakes',
@@ -67,6 +74,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   },
   {
     id: '8',
+    company_id: '',
     name: 'Sundae Morango',
     price: 13.50,
     category: 'sundaes',
@@ -75,6 +83,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   },
   {
     id: '9',
+    company_id: '',
     name: 'Sundae Chocolate',
     price: 13.50,
     category: 'sundaes',
@@ -83,6 +92,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   },
   {
     id: '10',
+    company_id: '',
     name: 'Banana Split',
     price: 22.00,
     category: 'sundaes',
@@ -91,6 +101,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   },
   {
     id: '11',
+    company_id: '',
     name: 'Água Mineral 500ml',
     price: 4.00,
     category: 'bebidas',
@@ -99,6 +110,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   },
   {
     id: '12',
+    company_id: '',
     name: 'Refrigerante Lata',
     price: 6.00,
     category: 'bebidas',
@@ -106,3 +118,4 @@ export const INITIAL_PRODUCTS: Product[] = [
     description: 'Coca-Cola, Guaraná Antarctica ou Sprite em lata.'
   }
 ];
+

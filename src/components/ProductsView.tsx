@@ -4,11 +4,11 @@ import { Plus, Edit2, Trash2, RotateCcw, Save } from 'lucide-react';
 
 interface ProductsViewProps {
   products: Product[];
-  onAddProduct: (product: Omit<Product, 'id'>) => void;
+  onAddProduct: (product: Omit<Product, 'id' | 'company_id'>) => void;
   onUpdateProduct: (product: Product) => void;
   onDeleteProduct: (id: string) => void;
   categories: Category[];
-  onAddCategory: (category: Omit<Category, 'id'>) => void;
+  onAddCategory: (category: Omit<Category, 'id' | 'company_id'>) => void;
   onUpdateCategory: (category: Category) => void;
   onDeleteCategory: (id: string) => void;
 }
@@ -120,6 +120,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
 
     if (editingProduct) {
       onUpdateProduct({
+        ...editingProduct,
         ...productData,
         id: editingProduct.id
       });
@@ -147,6 +148,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
 
     if (editingCategory) {
       onUpdateCategory({
+        ...editingCategory,
         ...catData,
         id: editingCategory.id
       });

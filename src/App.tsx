@@ -311,8 +311,8 @@ const App: React.FC = () => {
 
   // ─── Operadores CRUD ──────────────────────────────────────────────────────
 
-  const handleAddOperator = async (operatorData: Omit<Operator, 'id' | 'created_at'>): Promise<void> => {
-    const newOp: Operator = { ...operatorData, id: `op-${generateId()}`, company_id: companyId };
+  const handleAddOperator = async (data: Omit<Operator, 'id' | 'created_at' | 'company_id'>): Promise<void> => {
+    const newOp: Operator = { ...data, id: `op-${generateId()}`, company_id: companyId };
     try {
       await DB.addOperator(isOnline, companyId, newOp);
       setOperators(prev => [...prev, newOp]);
@@ -519,8 +519,8 @@ const App: React.FC = () => {
 
   // ─── Produtos CRUD ────────────────────────────────────────────────────────
 
-  const handleAddProduct = async (productData: Omit<Product, 'id'>) => {
-    const newProduct: Product = { ...productData, id: generateId(), company_id: companyId };
+  const handleAddProduct = async (data: Omit<Product, 'id' | 'company_id'>) => {
+    const newProduct: Product = { ...data, id: generateId(), company_id: companyId };
     try {
       await DB.addProduct(isOnline, companyId, newProduct);
       setProducts(prev => [...prev, newProduct]);
@@ -549,8 +549,8 @@ const App: React.FC = () => {
 
   // ─── Categorias CRUD ──────────────────────────────────────────────────────
 
-  const handleAddCategory = async (categoryData: Omit<Category, 'id'>) => {
-    const newCategory: Category = { ...categoryData, id: `cat-${generateId()}`, company_id: companyId };
+  const handleAddCategory = async (data: Omit<Category, 'id' | 'company_id'>) => {
+    const newCategory: Category = { ...data, id: `cat-${generateId()}`, company_id: companyId };
     try {
       await DB.addCategory(isOnline, companyId, newCategory);
       setCategories(prev => [...prev, newCategory]);
