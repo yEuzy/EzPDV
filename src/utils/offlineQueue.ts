@@ -23,7 +23,9 @@ export type OperationType =
   | 'INSERT_CASH_MOVEMENT'
   | 'INSERT_OPERATOR'
   | 'UPDATE_OPERATOR'
-  | 'DELETE_OPERATOR';
+  | 'DELETE_OPERATOR'
+  | 'DELETE_SALE'
+  | 'DELETE_SALE_PAYMENTS';
 
 export interface QueuedOperation {
   id: string;

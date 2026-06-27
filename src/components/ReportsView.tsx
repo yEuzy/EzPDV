@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { Sale, CashRegister, CashRegisterSession, Operator } from '../types';
+import type { Sale, CashRegister, CashRegisterSession, Operator, SalePayment } from '../types';
 import { 
   DollarSign, 
   ShoppingBag, 
