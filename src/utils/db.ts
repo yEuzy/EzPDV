@@ -440,6 +440,45 @@ export async function insertSale(
   lsSet(LS.SALES(companyId), [sale, ...current]);
 }
 
+export async function deleteSale(isOnline: boolean, companyId: string, saleId: string): Promise<void> {
+  if (isOnline && supabase) {
+    const { error } = await supabase.from('sales').delete().eq('id', saleId).eq('company_id', companyId);
+    if (error) throw error;
+  } else {
+    enqueue('DELETE_SALE', 'sales', {}, { column: 'id', value: saleId });
+  }
+  const current = lsGet<Sale[]>(LS.SALES(companyId)) ?? [];
+  lsSet(LS.SALES(companyId), current.filter(s => s.id !== saleId));
+}
+
+export async function updateSalePayments(
+  isOnline: boolean,
+  companyId: string,
+  saleId: string,
+  newPayments: SalePayment[]
+): Promise<void> {
+  const paymentRows = newPayments.map(p => ({
+    sale_id: saleId,
+    method: p.method,
+    amount: p.amount,
+  }));
+
+  if (isOnline && supabase) {
+    // Apaga os pagamentos antigos e insere os novos
+    const { error: delErr } = await supabase.from('sale_payments').delete().eq('sale_id', saleId);
+    if (delErr) throw delErr;
+    
+    const { error: insErr } = await supabase.from('sale_payments').insert(paymentRows);
+    if (insErr) throw insErr;
+  } else {
+    enqueue('DELETE_SALE_PAYMENTS', 'sale_payments', {}, { column: 'sale_id', value: saleId });
+    enqueue('INSERT_SALE_PAYMENTS', 'sale_payments', paymentRows as unknown as Record<string, unknown>[]);
+  }
+
+  const current = lsGet<Sale[]>(LS.SALES(companyId)) ?? [];
+  lsSet(LS.SALES(companyId), current.map(s => s.id === saleId ? { ...s, payments: newPayments } : s));
+}
+
 export async function deleteSales(isOnline: boolean, companyId: string): Promise<void> {
   if (isOnline && supabase) {
     const { error } = await supabase

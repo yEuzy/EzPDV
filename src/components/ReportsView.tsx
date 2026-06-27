@@ -37,6 +37,8 @@ interface ReportsViewProps {
   onUpdateOperator: (operator: Operator) => Promise<void>;
   onDeleteOperator: (id: string) => Promise<void>;
   isOnline: boolean;
+  onCancelSale?: (saleId: string) => Promise<void>;
+  onUpdateSalePayments?: (saleId: string, newPayments: SalePayment[]) => Promise<void>;
 }
 
 export const ReportsView: React.FC<ReportsViewProps> = ({
@@ -52,11 +54,17 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   onAddOperator,
   onUpdateOperator,
   onDeleteOperator,
-  isOnline
+  isOnline,
+  onCancelSale,
+  onUpdateSalePayments
 }) => {
   const [expandedSaleId, setExpandedSaleId] = useState<string | null>(null);
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [closingNotes, setClosingNotes] = useState('');
+  
+  // Sale editing states
+  const [editingPaymentSaleId, setEditingPaymentSaleId] = useState<string | null>(null);
+  const [editedPayments, setEditedPayments] = useState<Record<string, number>>({});
 
   // Cash movement states
   const [showMovementModal, setShowMovementModal] = useState(false);
@@ -136,9 +144,42 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   const toggleExpandSale = (id: string) => {
     if (expandedSaleId === id) {
       setExpandedSaleId(null);
+      setEditingPaymentSaleId(null);
     } else {
       setExpandedSaleId(id);
+      setEditingPaymentSaleId(null);
     }
+  };
+
+  const handleStartEditPayment = (sale: Sale) => {
+    setEditingPaymentSaleId(sale.id);
+    const initialPayments: Record<string, number> = {};
+    if (sale.payments && sale.payments.length > 0) {
+      sale.payments.forEach(p => {
+        initialPayments[p.method] = p.amount;
+      });
+    } else {
+      const method = (sale as any).paymentMethod || 'PIX';
+      initialPayments[method] = sale.total;
+    }
+    setEditedPayments(initialPayments);
+  };
+
+  const handleSavePaymentEdit = async (sale: Sale) => {
+    if (!onUpdateSalePayments) return;
+    
+    const newTotal = Object.values(editedPayments).reduce((sum, val) => sum + (val || 0), 0);
+    if (Math.abs(newTotal - sale.total) > 0.01) {
+      alert(`A soma dos pagamentos (R$ ${newTotal.toFixed(2)}) deve ser igual ao total da venda (R$ ${sale.total.toFixed(2)}).`);
+      return;
+    }
+
+    const newPaymentsList: SalePayment[] = Object.entries(editedPayments)
+      .filter(([_, amount]) => amount > 0)
+      .map(([method, amount]) => ({ method: method as any, amount }));
+
+    await onUpdateSalePayments(sale.id, newPaymentsList);
+    setEditingPaymentSaleId(null);
   };
 
   const handleExportCSV = () => {
@@ -473,6 +514,70 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                             </div>
                           ))}
                         </div>
+
+                        {/* Payment Editing / Actions */}
+                        <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px dashed var(--border-color)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                          {editingPaymentSaleId === sale.id ? (
+                            <div style={{ backgroundColor: '#fff', padding: '12px', borderRadius: '8px', border: '1px solid var(--primary-light)' }}>
+                              <h4 style={{ fontSize: '12px', marginBottom: '8px', color: 'var(--text-dark)' }}>Alterar Formas de Pagamento (Total: R$ {sale.total.toFixed(2)})</h4>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', marginBottom: '12px' }}>
+                                {paymentMethods.map(pm => (
+                                  <div key={pm} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <label style={{ fontSize: '11px', color: 'var(--text-light)', width: '60px' }}>{pm}</label>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      className="form-input"
+                                      style={{ height: '28px', padding: '4px 8px', fontSize: '12px', width: '100%' }}
+                                      value={editedPayments[pm] || ''}
+                                      onChange={(e) => {
+                                        const val = parseFloat(e.target.value) || 0;
+                                        setEditedPayments(prev => ({ ...prev, [pm]: val }));
+                                      }}
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                                <button className="btn secondary" style={{ padding: '4px 12px', fontSize: '11px', flex: 'none' }} onClick={() => setEditingPaymentSaleId(null)}>
+                                  Cancelar
+                                </button>
+                                <button className="btn primary" style={{ padding: '4px 12px', fontSize: '11px', flex: 'none' }} onClick={() => handleSavePaymentEdit(sale)}>
+                                  Salvar
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', flexWrap: 'wrap' }}>
+                              {onUpdateSalePayments && currentUser.role === 'admin' && (
+                                <button
+                                  className="btn secondary"
+                                  style={{ padding: '6px 12px', fontSize: '11px', flex: 'none' }}
+                                  onClick={() => handleStartEditPayment(sale)}
+                                >
+                                  <Pencil size={12} />
+                                  Alterar Pagamento
+                                </button>
+                              )}
+                              {onCancelSale && currentUser.role === 'admin' && (
+                                <button
+                                  className="btn secondary"
+                                  style={{ padding: '6px 12px', fontSize: '11px', flex: 'none', color: 'var(--danger)', borderColor: 'rgba(239,71,111,0.3)' }}
+                                  onClick={() => {
+                                    if (window.confirm('Tem certeza que deseja cancelar (excluir) esta venda?')) {
+                                      onCancelSale(sale.id);
+                                    }
+                                  }}
+                                >
+                                  <Trash2 size={12} />
+                                  Cancelar Venda
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
                       </div>
                     )}
                   </div>

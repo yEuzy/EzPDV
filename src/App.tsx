@@ -609,6 +609,24 @@ const App: React.FC = () => {
     }
   };
 
+  const handleCancelSale = async (saleId: string) => {
+    try {
+      await DB.deleteSale(isOnline, companyId, saleId);
+      setSales(prev => prev.filter(s => s.id !== saleId));
+    } catch (err: any) {
+      alert('Erro ao cancelar venda: ' + err.message);
+    }
+  };
+
+  const handleUpdateSalePayments = async (saleId: string, newPayments: SalePayment[]) => {
+    try {
+      await DB.updateSalePayments(isOnline, companyId, saleId, newPayments);
+      setSales(prev => prev.map(s => s.id === saleId ? { ...s, payments: newPayments } : s));
+    } catch (err: any) {
+      alert('Erro ao atualizar forma de pagamento: ' + err.message);
+    }
+  };
+
   // ─── Derivados do caixa ───────────────────────────────────────────────────
 
   const currentCashSales = sales
@@ -978,6 +996,8 @@ const App: React.FC = () => {
               onUpdateOperator={handleUpdateOperator}
               onDeleteOperator={handleDeleteOperator}
               isOnline={isOnline}
+              onCancelSale={handleCancelSale}
+              onUpdateSalePayments={handleUpdateSalePayments}
             />
           )}
         </div>
