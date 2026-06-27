@@ -60,6 +60,7 @@ export const PosView: React.FC<PosViewProps> = ({
   const [splitPix, setSplitPix] = useState<string>('');
   const [splitCredito, setSplitCredito] = useState<string>('');
   const [splitDebito, setSplitDebito] = useState<string>('');
+  const [amountReceived, setAmountReceived] = useState<string>('');
 
   // Filter products based on category and search query
   const filteredProducts = products.filter(product => {
@@ -82,13 +83,24 @@ export const PosView: React.FC<PosViewProps> = ({
       const debit = parseFloat(splitDebito) || 0;
       const totalPaid = money + pix + credit + debit;
 
-      if (Math.abs(totalPaid - cartTotal) > 0.01) {
-        alert(`O total dos pagamentos (R$ ${totalPaid.toFixed(2)}) não bate com o valor total do pedido (R$ ${cartTotal.toFixed(2)})!`);
+      if (totalPaid < cartTotal - 0.01) {
+        alert(`O total pago (R$ ${totalPaid.toFixed(2)}) é menor que o valor total (R$ ${cartTotal.toFixed(2)})!`);
         return;
       }
 
+      let finalMoney = money;
+      if (totalPaid > cartTotal + 0.01) {
+        const diff = totalPaid - cartTotal;
+        if (money > 0 && money >= diff - 0.01) {
+          finalMoney = money - diff;
+        } else {
+          alert(`O excesso de pagamento (R$ ${diff.toFixed(2)}) é maior que o valor em dinheiro (R$ ${money.toFixed(2)}), não é possível dar troco!`);
+          return;
+        }
+      }
+
       const payments: SalePayment[] = [];
-      if (money > 0) payments.push({ method: 'Dinheiro', amount: money });
+      if (finalMoney > 0) payments.push({ method: 'Dinheiro', amount: finalMoney });
       if (pix > 0) payments.push({ method: 'PIX', amount: pix });
       if (credit > 0) payments.push({ method: 'Cartão de Crédito', amount: credit });
       if (debit > 0) payments.push({ method: 'Cartão de Débito', amount: debit });
@@ -98,6 +110,7 @@ export const PosView: React.FC<PosViewProps> = ({
       onCheckout([{ method: paymentMethod, amount: cartTotal }]);
     }
 
+    setAmountReceived('');
     setIsCartMobileVisible(false);
     setSplitDinheiro('');
     setSplitPix('');
@@ -176,13 +189,23 @@ export const PosView: React.FC<PosViewProps> = ({
   }
 
   const isSplitValid = (() => {
-    if (!isSplitPayment) return true;
+    if (!isSplitPayment) {
+      if (paymentMethod === 'Dinheiro') {
+        const received = parseFloat(amountReceived);
+        if (!isNaN(received) && received > 0 && received < cartTotal) return false;
+      }
+      return true;
+    }
     const money = parseFloat(splitDinheiro) || 0;
     const pix = parseFloat(splitPix) || 0;
     const credit = parseFloat(splitCredito) || 0;
     const debit = parseFloat(splitDebito) || 0;
     const totalPaid = money + pix + credit + debit;
-    return Math.abs(totalPaid - cartTotal) < 0.01;
+    const diff = totalPaid - cartTotal;
+    
+    if (diff < -0.01) return false;
+    if (diff > 0.01 && (money === 0 || money < diff - 0.01)) return false;
+    return true;
   })();
 
   const formattedOpenTime = cashRegister.openedAt 
@@ -409,39 +432,87 @@ export const PosView: React.FC<PosViewProps> = ({
             </div>
 
             {!isSplitPayment ? (
-              <div className="payment-grid">
-                <button 
-                  type="button"
-                  className={`payment-btn ${paymentMethod === 'PIX' ? 'active' : ''}`}
-                  onClick={() => setPaymentMethod('PIX')}
-                >
-                  <QrCode size={14} />
-                  PIX
-                </button>
-                <button 
-                  type="button"
-                  className={`payment-btn ${paymentMethod === 'Dinheiro' ? 'active' : ''}`}
-                  onClick={() => setPaymentMethod('Dinheiro')}
-                >
-                  <DollarSign size={14} />
-                  Dinheiro
-                </button>
-                <button 
-                  type="button"
-                  className={`payment-btn ${paymentMethod === 'Cartão de Crédito' ? 'active' : ''}`}
-                  onClick={() => setPaymentMethod('Cartão de Crédito')}
-                >
-                  <CreditCard size={14} />
-                  Crédito
-                </button>
-                <button 
-                  type="button"
-                  className={`payment-btn ${paymentMethod === 'Cartão de Débito' ? 'active' : ''}`}
-                  onClick={() => setPaymentMethod('Cartão de Débito')}
-                >
-                  <CreditCard size={14} />
-                  Débito
-                </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div className="payment-grid">
+                  <button 
+                    type="button"
+                    className={`payment-btn ${paymentMethod === 'PIX' ? 'active' : ''}`}
+                    onClick={() => setPaymentMethod('PIX')}
+                  >
+                    <QrCode size={14} />
+                    PIX
+                  </button>
+                  <button 
+                    type="button"
+                    className={`payment-btn ${paymentMethod === 'Dinheiro' ? 'active' : ''}`}
+                    onClick={() => setPaymentMethod('Dinheiro')}
+                  >
+                    <DollarSign size={14} />
+                    Dinheiro
+                  </button>
+                  <button 
+                    type="button"
+                    className={`payment-btn ${paymentMethod === 'Cartão de Crédito' ? 'active' : ''}`}
+                    onClick={() => setPaymentMethod('Cartão de Crédito')}
+                  >
+                    <CreditCard size={14} />
+                    Crédito
+                  </button>
+                  <button 
+                    type="button"
+                    className={`payment-btn ${paymentMethod === 'Cartão de Débito' ? 'active' : ''}`}
+                    onClick={() => setPaymentMethod('Cartão de Débito')}
+                  >
+                    <CreditCard size={14} />
+                    Débito
+                  </button>
+                </div>
+                
+                {paymentMethod === 'Dinheiro' && (
+                  <div style={{ padding: '12px', backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 600 }}>Valor Recebido (R$)</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="Ex: 50.00"
+                        className="form-input"
+                        style={{ fontSize: '16px', padding: '10px', flexGrow: 1 }}
+                        value={amountReceived}
+                        onChange={(e) => setAmountReceived(e.target.value)}
+                      />
+                      <button 
+                        type="button"
+                        className="btn secondary"
+                        style={{ padding: '10px', height: '100%', fontSize: '12px' }}
+                        onClick={() => setAmountReceived(cartTotal.toFixed(2))}
+                      >
+                        Exato
+                      </button>
+                    </div>
+                    {(() => {
+                      const received = parseFloat(amountReceived);
+                      if (!isNaN(received)) {
+                        if (received >= cartTotal && cartTotal > 0) {
+                          const change = received - cartTotal;
+                          return (
+                            <div style={{ fontSize: '14px', fontWeight: 700, color: change > 0 ? 'var(--mint)' : 'var(--text-dark)', marginTop: '4px' }}>
+                              Troco: R$ {change.toFixed(2)}
+                            </div>
+                          );
+                        } else if (received > 0 && received < cartTotal) {
+                          return (
+                            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--danger)', marginTop: '4px' }}>
+                              Faltam R$ {(cartTotal - received).toFixed(2)}
+                            </div>
+                          );
+                        }
+                      }
+                      return null;
+                    })()}
+                  </div>
+                )}
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -569,11 +640,19 @@ export const PosView: React.FC<PosViewProps> = ({
                       </div>
                     );
                   } else if (diff > 0) {
-                    return (
-                      <div style={{ fontSize: '11px', color: 'var(--danger)', fontWeight: 700, textAlign: 'center', marginTop: '2px' }}>
-                        ⚠ Excesso: + R$ {diff.toFixed(2)}
-                      </div>
-                    );
+                    if (money > 0 && money >= diff - 0.01) {
+                      return (
+                        <div style={{ fontSize: '11px', color: 'var(--mint)', fontWeight: 700, textAlign: 'center', marginTop: '2px' }}>
+                          ✓ Troco: R$ {diff.toFixed(2)}
+                        </div>
+                      );
+                    } else {
+                      return (
+                        <div style={{ fontSize: '11px', color: 'var(--danger)', fontWeight: 700, textAlign: 'center', marginTop: '2px' }}>
+                          ⚠ Excesso (sem din. p/ troco): + R$ {diff.toFixed(2)}
+                        </div>
+                      );
+                    }
                   } else {
                     return (
                       <div style={{ fontSize: '11px', color: 'var(--danger)', fontWeight: 700, textAlign: 'center', marginTop: '2px' }}>

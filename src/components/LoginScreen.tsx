@@ -28,9 +28,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   isLoading = false,
   onOpenMasterPanel,
 }) => {
-  const [selectedOperatorId, setSelectedOperatorId] = useState<string>(
-    operators[0]?.id || ''
-  );
+  const [username, setUsername] = useState<string>('');
   const [pin, setPin] = useState<string>('');
   const [error, setError] = useState<string>('');
 
@@ -38,18 +36,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const logoClickCount = useRef(0);
   const logoClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Atualizar operador selecionado quando a lista carregar
-  useEffect(() => {
-    if (operators.length > 0 && !selectedOperatorId) {
-      setSelectedOperatorId(operators[0].id);
-    }
-  }, [operators, selectedOperatorId]);
-
   const handleNumberClick = (num: string) => {
-    if (pin.length < 4) {
-      setPin(prev => prev + num);
-      setError('');
-    }
+    setPin(prev => prev + num);
+    setError('');
   };
 
   const handleDelete = () => {
@@ -62,23 +51,30 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
   const handleSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (pin.length !== 4) {
-      setError('O PIN deve ter 4 dígitos.');
+    if (!username.trim()) {
+      setError('Por favor, informe o usuário.');
       return;
     }
-    const success = onLogin(selectedOperatorId, pin);
+    if (!pin.trim()) {
+      setError('Por favor, informe a senha.');
+      return;
+    }
+    
+    // Procura o operador ignorando maiúsculas e minúsculas
+    const operator = operators.find(op => op.name.toLowerCase() === username.trim().toLowerCase());
+    
+    if (!operator) {
+      setError('Usuário não encontrado.');
+      setPin('');
+      return;
+    }
+
+    const success = onLogin(operator.id, pin);
     if (!success) {
-      setError('PIN incorreto. Tente novamente.');
+      setError('Senha incorreta. Tente novamente.');
       setPin('');
     }
   };
-
-  // Auto submit quando PIN atinge 4 dígitos
-  useEffect(() => {
-    if (pin.length === 4) {
-      handleSubmit();
-    }
-  }, [pin]);
 
   // Teclado físico
   useEffect(() => {
@@ -171,53 +167,49 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               Nenhum operador encontrado. Verifique a conexão e o VITE_COMPANY_ID no .env.
             </div>
           ) : (
-            <>
+            <form onSubmit={handleSubmit} style={{ width: '100%' }}>
               <div className="form-group" style={{ marginBottom: '20px', textAlign: 'left' }}>
-                <label className="form-label">Operador</label>
-                <select
+                <label className="form-label">Usuário</label>
+                <input
+                  type="text"
                   className="form-input"
                   style={{ width: '100%', boxSizing: 'border-box', height: '44px', fontSize: '15px' }}
-                  value={selectedOperatorId}
+                  value={username}
                   onChange={e => {
-                    setSelectedOperatorId(e.target.value);
-                    setPin('');
+                    setUsername(e.target.value);
                     setError('');
                   }}
-                >
-                  {operators.map(op => (
-                    <option key={op.id} value={op.id}>
-                      {op.name} ({op.role === 'admin' ? 'Admin' : 'Operador'})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group" style={{ marginBottom: '20px', textAlign: 'center' }}>
-                <label className="form-label">PIN de Acesso</label>
-                <input
-                  type="password"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={4}
-                  className="form-input"
-                  style={{
-                    width: '100%', boxSizing: 'border-box',
-                    height: '56px', fontSize: '24px', textAlign: 'center',
-                    letterSpacing: '8px', fontWeight: 'bold',
-                  }}
-                  value={pin}
-                  onChange={e => {
-                    const val = e.target.value.replace(/[^0-9]/g, '');
-                    if (val.length <= 4) {
-                      setPin(val);
-                      setError('');
-                    }
-                  }}
-                  placeholder="****"
+                  placeholder="Digite seu usuário"
                   autoFocus
                 />
               </div>
-            </>
+
+              <div className="form-group" style={{ marginBottom: '20px', textAlign: 'left' }}>
+                <label className="form-label">Senha</label>
+                <input
+                  type="password"
+                  className="form-input"
+                  style={{
+                    width: '100%', boxSizing: 'border-box',
+                    height: '44px', fontSize: '15px', letterSpacing: pin.length > 0 ? '4px' : 'normal'
+                  }}
+                  value={pin}
+                  onChange={e => {
+                    setPin(e.target.value);
+                    setError('');
+                  }}
+                  placeholder="Digite sua senha"
+                />
+              </div>
+              
+              <button 
+                type="submit" 
+                className="btn primary" 
+                style={{ width: '100%', padding: '12px', fontSize: '16px', borderRadius: 'var(--radius-md)', marginTop: '8px' }}
+              >
+                Entrar
+              </button>
+            </form>
           )}
 
           {/* Dica discreta para acesso master */}
