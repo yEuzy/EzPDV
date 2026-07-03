@@ -107,7 +107,6 @@ const App: React.FC = () => {
   const [pastSessions, setPastSessions] = useState<CashRegisterSession[]>([]);
 
   const [pendingOps, setPendingOps] = useState(0);
-  const [isLoadingOperators, setIsLoadingOperators] = useState(true);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   // Connection status
@@ -137,8 +136,6 @@ const App: React.FC = () => {
         if (cached) {
           setCurrentCompany(cached);
           applyTheme(getStoredTheme(cached.id, cached.theme_id));
-        } else {
-          setCompanyError('VITE_COMPANY_ID não configurado no .env.');
         }
         return;
       }
@@ -188,7 +185,6 @@ const App: React.FC = () => {
     if (isChecking || !currentCompany) return;
 
     const loadOperators = async () => {
-      setIsLoadingOperators(true);
       try {
         const ops = await DB.fetchOperators(isOnline, companyId);
         if (ops.length > 0) {
@@ -202,7 +198,6 @@ const App: React.FC = () => {
         const cached = lsGet<Operator[]>(LS.OPERATORS(companyId));
         if (cached && cached.length > 0) setOperators(cached);
       } finally {
-        setIsLoadingOperators(false);
         initialOpsDone.current = true;
       }
     };
@@ -249,14 +244,14 @@ const App: React.FC = () => {
     [companyId]
   );
 
-  // Primeira carga
-  const initialLoadDone = useRef(false);
+  // Primeira carga baseada na empresa
+  const [loadedCompanyId, setLoadedCompanyId] = useState<string | null>(null);
   useEffect(() => {
-    if (!isChecking && currentCompany && !initialLoadDone.current) {
-      initialLoadDone.current = true;
+    if (!isChecking && currentCompany && loadedCompanyId !== currentCompany.id) {
+      setLoadedCompanyId(currentCompany.id);
       loadAllData(isOnline);
     }
-  }, [isChecking, isOnline, currentCompany, loadAllData]);
+  }, [isChecking, isOnline, currentCompany, loadAllData, loadedCompanyId]);
 
   // ─── Sincronização automática ao reconectar ───────────────────────────────
 
@@ -294,12 +289,23 @@ const App: React.FC = () => {
 
   // ─── Login / Logout ───────────────────────────────────────────────────────
 
-  const handleLogin = (operatorId: string, pin: string): boolean => {
-    const operator = operators.find(op => op.id === operatorId);
-    if (operator && operator.pin === pin) {
-      setCurrentUser(operator);
-      lsSet(LS.CURRENT_USER(companyId), operator);
-      return true;
+  const handleLogin = async (username: string, pin: string): Promise<boolean> => {
+    try {
+      const operator = await DB.authenticateUser(username, pin, isOnline);
+      if (operator) {
+        const company = await DB.fetchCompany(operator.company_id);
+        if (company) {
+          setCurrentCompany(company);
+          lsSet(LS.COMPANY, company);
+          applyTheme(getStoredTheme(company.id, company.theme_id));
+          
+          setCurrentUser(operator);
+          lsSet(LS.CURRENT_USER(company.id), operator);
+          return true;
+        }
+      }
+    } catch (err) {
+      console.error('[App] Erro no login:', err);
     }
     return false;
   };
@@ -307,6 +313,23 @@ const App: React.FC = () => {
   const handleLogout = () => {
     setCurrentUser(null);
     if (companyId) localStorage.removeItem(LS.CURRENT_USER(companyId));
+    
+    // Se não há empresa fixa no .env, descarrega a empresa para voltar ao login neutro
+    if (!COMPANY_ID) {
+      setCurrentCompany(null);
+      localStorage.removeItem(LS.COMPANY);
+      setLoadedCompanyId(null);
+      
+      // Limpa os dados em memória para não vazar para a próxima empresa
+      setProducts([]);
+      setCategories([]);
+      setSales([]);
+      setCashRegister({
+        id: null, isOpen: false, openedAt: null, openedBy: null, startingCash: 0, movements: [],
+      });
+      setPastSessions([]);
+      setOperators([]);
+    }
   };
 
   // ─── Operadores CRUD ──────────────────────────────────────────────────────
@@ -732,10 +755,9 @@ const App: React.FC = () => {
       <>
         {showMasterPanel && <MasterAdminPanel onClose={() => { setShowMasterPanel(false); }} />}
         <LoginScreen
-          operators={operators}
           company={currentCompany}
           onLogin={handleLogin}
-          isLoading={isLoadingOperators || isChecking}
+          isLoading={isLoadingCompany}
           onOpenMasterPanel={() => setShowMasterPanel(true)}
         />
       </>

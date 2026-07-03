@@ -1,5 +1,5 @@
 // ─── Empresa ───────────────────────────────────────────────────────────────────
-export type ThemeId = 'gelato' | 'sky' | 'forest' | 'ember';
+export type ThemeId = 'gelato' | 'gelato-dark' | 'sky' | 'forest' | 'ember';
 
 export interface Company {
   id: string;

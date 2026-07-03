@@ -35,6 +35,7 @@ export const LS = {
   PAST_SESSIONS: (cid: string) => `ezpdv_${cid}_past_sessions_v2`,
   CURRENT_USER:  (cid: string) => `ezpdv_${cid}_current_user_v2`,
   COMPANY:                       'ezpdv_current_company',
+  GLOBAL_LOGIN_CACHE:            'ezpdv_global_login_cache',
 } as const;
 
 // ─── Helpers LocalStorage ──────────────────────────────────────────────────────
@@ -98,6 +99,52 @@ export async function deleteCompany(id: string): Promise<void> {
   if (!supabase) throw new Error('Supabase não configurado');
   const { error } = await supabase.from('companies').delete().eq('id', id);
   if (error) throw error;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// AUTENTICAÇÃO (Login Dinâmico)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export interface CachedLogin {
+  username: string;
+  pin: string;
+  operator: Operator;
+}
+
+export async function authenticateUser(username: string, pin: string, isOnline: boolean): Promise<Operator | null> {
+  // Ignora maiúsculas e minúsculas no frontend
+  const normalizedUsername = username.trim().toLowerCase();
+
+  if (isOnline && supabase) {
+    // Busca o operador no banco de dados. Para não expor os PINs na requisição, 
+    // fazemos o match pelo nome (case-insensitive via ilike) e verificamos o pin exato
+    const { data, error } = await supabase
+      .from('operators')
+      .select('*')
+      .ilike('name', normalizedUsername)
+      .eq('pin', pin)
+      .limit(1)
+      .single();
+
+    if (!error && data) {
+      const operator = data as Operator;
+      // Salva no cache global para login offline futuro
+      const cache = lsGet<CachedLogin[]>(LS.GLOBAL_LOGIN_CACHE) || [];
+      const newCache = cache.filter(c => !(c.username.toLowerCase() === normalizedUsername && c.pin === pin));
+      newCache.push({ username: normalizedUsername, pin, operator });
+      lsSet(LS.GLOBAL_LOGIN_CACHE, newCache);
+      return operator;
+    }
+  } else {
+    // Offline fallback
+    const cache = lsGet<CachedLogin[]>(LS.GLOBAL_LOGIN_CACHE) || [];
+    const match = cache.find(c => c.username.toLowerCase() === normalizedUsername && c.pin === pin);
+    if (match) {
+      return match.operator;
+    }
+  }
+
+  return null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

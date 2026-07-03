@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import type { Operator, Company } from '../types';
+import type { Company } from '../types';
 import { Loader2 } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 
 interface LoginScreenProps {
-  operators: Operator[];
   company: Company | null;
-  onLogin: (operatorId: string, pin: string) => boolean;
+  onLogin: (username: string, pin: string) => Promise<boolean>;
   isLoading?: boolean;
   onOpenMasterPanel: () => void;
 }
@@ -22,7 +21,6 @@ function DynamicIcon({ name, size = 48, color }: { name: string; size?: number; 
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({
-  operators,
   company,
   onLogin,
   isLoading = false,
@@ -31,6 +29,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [username, setUsername] = useState<string>('');
   const [pin, setPin] = useState<string>('');
   const [error, setError] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Triple-click counter for master panel trigger
   const logoClickCount = useRef(0);
@@ -49,7 +48,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     setPin('');
   };
 
-  const handleSubmit = (e?: React.FormEvent) => {
+  const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!username.trim()) {
       setError('Por favor, informe o usuário.');
@@ -60,18 +59,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       return;
     }
     
-    // Procura o operador ignorando maiúsculas e minúsculas
-    const operator = operators.find(op => op.name.toLowerCase() === username.trim().toLowerCase());
-    
-    if (!operator) {
-      setError('Usuário não encontrado.');
-      setPin('');
-      return;
-    }
+    setIsSubmitting(true);
+    setError('');
 
-    const success = onLogin(operator.id, pin);
+    const success = await onLogin(username.trim(), pin);
+    
+    setIsSubmitting(false);
+
     if (!success) {
-      setError('Senha incorreta. Tente novamente.');
+      setError('Usuário ou senha incorretos.');
       setPin('');
     }
   };
@@ -122,8 +118,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   };
 
   const primaryColor = 'var(--primary)';
-  const companyName = company?.name ?? 'EzPDV';
-  const companyTagline = company?.tagline ?? 'Sistema de Ponto de Venda';
   const companyIcon = company?.icon ?? 'Store';
 
   return (
@@ -144,27 +138,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             <DynamicIcon name={companyIcon} size={48} color={primaryColor} />
           </div>
 
-          <h2 className="login-title">{companyName}</h2>
-          <p className="login-subtitle">{companyTagline}</p>
+          <h2 className="login-title">EzPDV</h2>
+          <p className="login-subtitle">Sistema de Ponto de Venda</p>
 
           {error && <div className="login-error">{error}</div>}
 
-          {isLoading ? (
+          {isLoading || isSubmitting ? (
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               gap: '10px', padding: '20px', color: 'var(--text-light)', fontSize: '14px',
             }}>
               <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} />
-              Carregando…
-            </div>
-          ) : operators.length === 0 ? (
-            <div style={{
-              padding: '16px', textAlign: 'center', fontSize: '13px',
-              color: 'var(--danger)',
-              backgroundColor: 'rgba(239,71,111,0.08)',
-              borderRadius: 'var(--radius-sm)', marginBottom: '16px',
-            }}>
-              Nenhum operador encontrado. Verifique a conexão e o VITE_COMPANY_ID no .env.
+              {isSubmitting ? 'Autenticando...' : 'Carregando…'}
             </div>
           ) : (
             <form onSubmit={handleSubmit} style={{ width: '100%' }}>
@@ -188,6 +173,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 <label className="form-label">Senha</label>
                 <input
                   type="password"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={4}
                   className="form-input"
                   style={{
                     width: '100%', boxSizing: 'border-box',
@@ -195,10 +183,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   }}
                   value={pin}
                   onChange={e => {
-                    setPin(e.target.value);
+                    setPin(e.target.value.replace(/\D/g, ''));
                     setError('');
                   }}
-                  placeholder="Digite sua senha"
+                  placeholder="Digite sua senha de 4 dígitos"
                 />
               </div>
               
