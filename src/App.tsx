@@ -1024,6 +1024,7 @@ const App: React.FC = () => {
               onAddCategory={handleAddCategory}
               onUpdateCategory={handleUpdateCategory}
               onDeleteCategory={handleDeleteCategory}
+              currentCompany={currentCompany}
             />
           )}
 
