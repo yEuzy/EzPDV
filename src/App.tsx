@@ -17,6 +17,7 @@ import { ProductsView } from './components/ProductsView';
 import { ReportsView } from './components/ReportsView';
 import { LoginScreen } from './components/LoginScreen';
 import { MasterAdminPanel } from './components/MasterAdminPanel';
+import { SettingsView } from './components/SettingsView';
 import { useConnectionStatus } from './utils/connectionMonitor';
 import { syncQueue, getPendingCount } from './utils/offlineQueue';
 import { LS } from './utils/db';
@@ -32,6 +33,7 @@ import {
   WifiOff,
   Wifi,
   Store,
+  Settings,
 } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 
@@ -69,7 +71,7 @@ const COMPANY_ID = import.meta.env.VITE_COMPANY_ID as string | undefined;
 // ─── App ──────────────────────────────────────────────────────────────────────
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'pos' | 'products' | 'reports'>('pos');
+  const [activeTab, setActiveTab] = useState<'pos' | 'products' | 'reports' | 'settings'>('pos');
 
   // Painel master (acessível em qualquer estado da app)
   const [showMasterPanel, setShowMasterPanel] = useState(false);
@@ -440,12 +442,21 @@ const App: React.FC = () => {
 
     const totalSales = sessionSales.reduce((a, s) => a + s.total, 0);
     const finalCash = cashRegister.startingCash + cashSales + totalReforcos - totalSangrias;
+    
+    let totalProfit = 0;
+    if (currentCompany?.enable_cost_price) {
+      const totalCost = sessionSales.reduce((acc, s) => {
+        const saleCost = s.items.reduce((sum, item) => sum + ((item.cost_price || 0) * item.quantity), 0);
+        return acc + saleCost;
+      }, 0);
+      totalProfit = totalSales - totalCost;
+    }
 
     const closedAt = new Date().toISOString();
     const closedBy = currentUser?.name ?? 'Caixa';
     const sessionId = cashRegister.id;
 
-    const summary = { cashSales, pixSales, creditSales, debitSales, totalReforcos, totalSangrias, totalSales, finalCash, notes: notes?.trim() || undefined };
+    const summary = { cashSales, pixSales, creditSales, debitSales, totalReforcos, totalSangrias, totalSales, finalCash, totalProfit, notes: notes?.trim() || undefined };
 
     try {
       await DB.closeCashSession(isOnline, companyId, sessionId, closedAt, closedBy, summary);
@@ -487,7 +498,7 @@ const App: React.FC = () => {
           i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i
         );
       }
-      return [...prev, { product, quantity: 1, notes: '' }];
+      return [...prev, { product, quantity: 1, cost_price: product.cost_price || 0, notes: '' }];
     });
   };
 
@@ -835,6 +846,16 @@ const App: React.FC = () => {
               <BarChart3 size={20} />
               Relatórios
             </button>
+
+            {currentUser?.role === 'admin' && (
+              <button
+                className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`}
+                onClick={() => setActiveTab('settings')}
+              >
+                <Settings size={20} />
+                Configurações
+              </button>
+            )}
           </nav>
         </div>
 
@@ -933,6 +954,7 @@ const App: React.FC = () => {
             {activeTab === 'pos' && 'Caixa'}
             {activeTab === 'products' && 'Produtos'}
             {activeTab === 'reports' && 'Relatórios'}
+            {activeTab === 'settings' && 'Configurações'}
           </div>
         </div>
       </header>
@@ -961,11 +983,13 @@ const App: React.FC = () => {
               {activeTab === 'pos' && 'Fazer Vendas'}
               {activeTab === 'products' && 'Gerenciar Produtos'}
               {activeTab === 'reports' && 'Faturamento e Relatórios'}
+              {activeTab === 'settings' && 'Configurações da Empresa'}
             </h1>
             <span className="page-subtitle">
               {activeTab === 'pos' && 'Selecione os produtos e finalize o pagamento.'}
               {activeTab === 'products' && 'Cadastre, edite ou exclua produtos.'}
               {activeTab === 'reports' && 'Monitore o caixa diário e veja o histórico de transações.'}
+              {activeTab === 'settings' && 'Gerencie configurações globais da sua loja.'}
             </span>
           </div>
         </div>
@@ -1020,6 +1044,15 @@ const App: React.FC = () => {
               isOnline={isOnline}
               onCancelSale={handleCancelSale}
               onUpdateSalePayments={handleUpdateSalePayments}
+              currentCompany={currentCompany!}
+            />
+          )}
+
+          {activeTab === 'settings' && currentCompany && (
+            <SettingsView
+              currentCompany={currentCompany}
+              setCurrentCompany={setCurrentCompany as any}
+              isOnline={isOnline}
             />
           )}
         </div>
@@ -1048,6 +1081,15 @@ const App: React.FC = () => {
           <BarChart3 className="mobile-nav-icon" />
           <span>Relatórios</span>
         </button>
+        {currentUser?.role === 'admin' && (
+          <button
+            className={`mobile-nav-item ${activeTab === 'settings' ? 'active' : ''}`}
+            onClick={() => setActiveTab('settings')}
+          >
+            <Settings className="mobile-nav-icon" />
+            <span>Config.</span>
+          </button>
+        )}
       </nav>
 
       {/* Success Modal */}

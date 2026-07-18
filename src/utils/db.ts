@@ -312,6 +312,7 @@ export async function fetchProducts(isOnline: boolean, companyId: string): Promi
     const products = (data || []).map(p => ({
       ...p,
       price: Number(p.price),
+      cost_price: Number(p.cost_price || 0),
     })) as Product[];
     lsSet(LS.PRODUCTS(companyId), products);
     return products;
@@ -410,10 +411,12 @@ export async function fetchSales(isOnline: boolean, companyId: string): Promise<
             price: Number(i.price),
             category: '',
             color: '',
+            cost_price: Number(i.cost_price || 0),
             company_id: companyId,
           },
           quantity: i.quantity,
           notes: i.notes ?? '',
+          cost_price: Number(i.cost_price || 0),
         }));
 
       const payments: SalePayment[] = (paymentsData || [])
@@ -460,6 +463,7 @@ export async function insertSale(
     price: item.product.price,
     quantity: item.quantity,
     notes: item.notes ?? null,
+    cost_price: item.cost_price ?? item.product.cost_price ?? 0,
   }));
 
   const paymentRows = sale.payments.map(p => ({
@@ -627,6 +631,7 @@ export async function fetchCashData(
           totalSangrias: Number(s.total_sangrias ?? 0),
           totalSales: Number(s.total_sales ?? 0),
           finalCash: Number(s.final_cash ?? 0),
+          totalProfit: Number(s.total_profit ?? 0),
           notes: s.notes ?? undefined,
           movements: sessionMovements,
           company_id: companyId,
@@ -666,6 +671,7 @@ export async function openCashSession(
     total_sangrias: 0,
     total_sales: 0,
     final_cash: 0,
+    total_profit: 0,
     company_id: companyId,
   };
 
@@ -715,6 +721,7 @@ export async function closeCashSession(
     totalSangrias: number;
     totalSales: number;
     finalCash: number;
+    totalProfit?: number;
     notes?: string;
   }
 ): Promise<void> {
@@ -729,6 +736,7 @@ export async function closeCashSession(
     total_sangrias: summary.totalSangrias,
     total_sales: summary.totalSales,
     final_cash: summary.finalCash,
+    total_profit: summary.totalProfit ?? 0,
     notes: summary.notes ?? null,
   };
 

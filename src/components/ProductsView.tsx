@@ -11,6 +11,7 @@ interface ProductsViewProps {
   onAddCategory: (category: Omit<Category, 'id' | 'company_id'>) => void;
   onUpdateCategory: (category: Category) => void;
   onDeleteCategory: (id: string) => void;
+  currentCompany?: any; // any to avoid circular import if needed, or we can just import Company
 }
 
 const PASTEL_COLORS = [
@@ -36,7 +37,8 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
   categories,
   onAddCategory,
   onUpdateCategory,
-  onDeleteCategory
+  onDeleteCategory,
+  currentCompany
 }) => {
   const [activeTab, setActiveTab] = useState<'products' | 'categories'>('products');
 
@@ -44,6 +46,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
+  const [costPrice, setCostPrice] = useState('');
   const [category, setCategory] = useState(categories[0]?.id || 'all');
   const [color, setColor] = useState(PASTEL_COLORS[0]);
   const [description, setDescription] = useState('');
@@ -60,6 +63,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
     if (editingProduct) {
       setName(editingProduct.name);
       setPrice(editingProduct.price.toString());
+      setCostPrice(editingProduct.cost_price?.toString() || '');
       setCategory(editingProduct.category);
       setColor(editingProduct.color);
       setDescription(editingProduct.description || '');
@@ -82,6 +86,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
     setEditingProduct(null);
     setName('');
     setPrice('');
+    setCostPrice('');
     setCategory(categories[0]?.id || 'all');
     setColor(PASTEL_COLORS[0]);
     setDescription('');
@@ -113,6 +118,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
     const productData = {
       name: name.trim(),
       price: numericPrice,
+      cost_price: currentCompany?.enable_cost_price && costPrice ? parseFloat(costPrice) : 0,
       category,
       color,
       description: description.trim() || undefined
@@ -230,13 +236,13 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
           )}
 
           <div className="form-group">
-            <label className="form-label">Nome do Sorvete / Produto *</label>
+            <label className="form-label">Nome do Produto *</label>
             <input
               type="text"
               className="form-input"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Ex: Milkshake Ovomaltine 500ml"
+              placeholder="Ex: Produto X"
             />
           </div>
 
@@ -267,6 +273,20 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                 placeholder="0.00"
               />
             </div>
+            {currentCompany?.enable_cost_price && (
+              <div className="form-group">
+                <label className="form-label">Preço de Custo (R$)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="form-input"
+                  value={costPrice}
+                  onChange={(e) => setCostPrice(e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+            )}
           </div>
 
           <div className="form-group">
@@ -318,7 +338,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
         {products.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-light)' }}>
             <p>Nenhum produto cadastrado no catálogo.</p>
-            <p style={{ fontSize: '13px', marginTop: '8px' }}>Use o formulário para adicionar novos itens ao quiosque.</p>
+            <p style={{ fontSize: '13px', marginTop: '8px' }}>Use o formulário para adicionar novos itens à loja.</p>
           </div>
         ) : (
           <div className="products-table-container">
@@ -327,6 +347,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                 <tr>
                   <th>Produto</th>
                   <th>Categoria</th>
+                  {currentCompany?.enable_cost_price && <th>Custo</th>}
                   <th>Preço</th>
                   <th style={{ textAlign: 'center' }}>Ações</th>
                 </tr>
@@ -353,6 +374,11 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                     <td style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-light)' }}>
                       {getCategoryName(product.category)}
                     </td>
+                    {currentCompany?.enable_cost_price && (
+                      <td className="table-price" style={{ color: 'var(--text-light)' }}>
+                        R$ {(product.cost_price || 0).toFixed(2)}
+                      </td>
+                    )}
                     <td className="table-price">
                       R$ {product.price.toFixed(2)}
                     </td>
@@ -419,11 +445,11 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                 onChange={(e) => setCatIcon(e.target.value)}
                 style={{ height: '42px' }}
               >
-                <option value="IceCreamCone">Casquinha / Sorvete de Massa</option>
-                <option value="CupSoda">Copo (Bebidas, Milkshakes, Açaí)</option>
-                <option value="IceCreamBowl">Taça / Sundae</option>
-                <option value="Cake">Bolos / Sobremesas Diversas</option>
-                <option value="Store">Lojinha / Gerais</option>
+                <option value="IceCreamCone">Produto Unitário / Item</option>
+                <option value="CupSoda">Bebida / Copo</option>
+                <option value="IceCreamBowl">Porção / Prato</option>
+                <option value="Cake">Sobremesas / Doces</option>
+                <option value="Store">Loja / Gerais</option>
               </select>
             </div>
 

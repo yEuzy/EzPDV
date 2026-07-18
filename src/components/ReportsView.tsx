@@ -39,6 +39,7 @@ interface ReportsViewProps {
   isOnline: boolean;
   onCancelSale?: (saleId: string) => Promise<void>;
   onUpdateSalePayments?: (saleId: string, newPayments: SalePayment[]) => Promise<void>;
+  currentCompany: any;
 }
 
 export const ReportsView: React.FC<ReportsViewProps> = ({
@@ -56,7 +57,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   onDeleteOperator,
   isOnline,
   onCancelSale,
-  onUpdateSalePayments
+  onUpdateSalePayments,
+  currentCompany
 }) => {
   const [expandedSaleId, setExpandedSaleId] = useState<string | null>(null);
   const [showCloseModal, setShowCloseModal] = useState(false);
@@ -92,6 +94,15 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   const totalRevenue = activeSales.reduce((sum, sale) => sum + sale.total, 0);
   const totalSalesCount = activeSales.length;
   const averageTicket = totalSalesCount > 0 ? totalRevenue / totalSalesCount : 0;
+
+  let currentSessionProfit = 0;
+  if (currentCompany?.enable_cost_price) {
+    const totalCost = activeSales.reduce((acc, sale) => {
+      const saleCost = sale.items.reduce((sum, item) => sum + ((item.cost_price || 0) * item.quantity), 0);
+      return acc + saleCost;
+    }, 0);
+    currentSessionProfit = totalRevenue - totalCost;
+  }
 
   // Calculate payment method breakdown
   const paymentBreakdown = activeSales.reduce((acc, sale) => {
@@ -810,6 +821,12 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                     <span style={{ color: 'var(--text-light)' }}>Total de Vendas:</span>
                     <div style={{ fontWeight: 700, color: 'var(--text-dark)' }}>R$ {session.totalSales.toFixed(2)}</div>
                   </div>
+                  {currentCompany?.enable_cost_price && (
+                    <div>
+                      <span style={{ color: 'var(--text-light)' }}>Lucro do Turno:</span>
+                      <div style={{ fontWeight: 700, color: (session.totalProfit || 0) >= 0 ? 'var(--mint)' : 'var(--danger)' }}>R$ {(session.totalProfit || 0).toFixed(2)}</div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Movements list in the session */}
@@ -896,6 +913,12 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 <span>Total de Vendas no Turno:</span>
                 <span>R$ {totalRevenue.toFixed(2)}</span>
               </div>
+              {currentCompany?.enable_cost_price && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '6px', fontWeight: 'bold', fontSize: '15px', color: currentSessionProfit >= 0 ? 'var(--mint)' : 'var(--danger)' }}>
+                  <span>Lucro do Turno (Estimado):</span>
+                  <span>R$ {currentSessionProfit.toFixed(2)}</span>
+                </div>
+              )}
             </div>
 
             <div className="form-group" style={{ textAlign: 'left', marginBottom: '20px' }}>

@@ -8,6 +8,7 @@ export interface Company {
   theme_id: ThemeId;
   icon: string;
   created_at?: string;
+  enable_cost_price?: boolean;
 }
 
 // ─── Produto ───────────────────────────────────────────────────────────────────
@@ -18,6 +19,7 @@ export interface Product {
   category: string;
   color: string;
   description?: string;
+  cost_price?: number;
   company_id: string;
 }
 
@@ -26,6 +28,7 @@ export interface CartItem {
   product: Product;
   quantity: number;
   notes?: string;
+  cost_price?: number;
 }
 
 // ─── Pagamento de Venda ────────────────────────────────────────────────────────
@@ -101,6 +104,7 @@ export interface CashRegisterSession {
   totalSangrias: number;
   totalSales: number;
   finalCash: number;
+  totalProfit?: number;
   notes?: string;
   movements: CashMovement[];
   company_id?: string;

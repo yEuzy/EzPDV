@@ -235,7 +235,7 @@ export const PosView: React.FC<PosViewProps> = ({
             </span>
             <input
               type="text"
-              placeholder="Buscar sorvete, milkshake..."
+              placeholder="Buscar produto..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="form-input"
@@ -262,8 +262,8 @@ export const PosView: React.FC<PosViewProps> = ({
         {filteredProducts.length === 0 ? (
           <div className="card" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-light)' }}>
             <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center' }}><IceCreamCone size={40} /></div>
-            <h3>Nenhum sorvete encontrado</h3>
-            <p>Tente mudar a categoria ou limpar a sua busca.</p>
+            <h3>Nenhum produto encontrado</h3>
+            <p>Tente buscar por outro termo.</p>
           </div>
         ) : (
           <div className="products-grid">
@@ -354,9 +354,11 @@ export const PosView: React.FC<PosViewProps> = ({
         <div className="cart-items-list">
           {cart.length === 0 ? (
             <div className="cart-empty-state">
-              <IceCreamCone size={48} className="cart-empty-icon" style={{ display: 'block', margin: '0 auto' }} />
-              <h3>Carrinho Vazio</h3>
-              <p>Toque em algum sorvete ao lado para adicionar ao pedido!</p>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-light)', padding: '40px' }}>
+                <ShoppingCart size={48} style={{ marginBottom: '16px', opacity: 0.2 }} />
+                <h3>Carrinho Vazio</h3>
+                <p>Toque em algum produto ao lado para adicionar ao pedido!</p>
+              </div>
             </div>
           ) : (
             cart.map((item) => (

@@ -451,7 +451,7 @@ export const MasterAdminPanel: React.FC<MasterAdminPanelProps> = ({ onClose }) =
                 <label style={S.label}>Tagline</label>
                 <input value={companyForm.tagline}
                   onChange={e => setCompanyForm(p => ({ ...p, tagline: e.target.value }))}
-                  placeholder="ex: Quiosque de Sorvete"
+                  placeholder="ex: Loja Centro"
                   style={S.input} />
               </div>
 

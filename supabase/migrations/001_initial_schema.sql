@@ -41,12 +41,12 @@ CREATE TABLE categories (
   sort_order  INTEGER NOT NULL DEFAULT 0
 );
 
-INSERT INTO categories (id, name, icon, sort_order) VALUES
-  ('all',        'Todos',          'Grid',    0),
-  ('casquinhas', 'Casquinhas',     'Cone',    1),
-  ('milkshakes', 'Milkshakes',     'CupSoda', 2),
-  ('sundaes',    'Sundaes & Taças','Dessert', 3),
-  ('bebidas',    'Bebidas',        'Beer',    4);
+--  INSERT INTO categories (id, name, icon, sort_order) VALUES
+--  ('all',        'Todos',          'Grid',    0),
+--  ('casquinhas', 'Casquinhas',     'Cone',    1),
+--  ('milkshakes', 'Milkshakes',     'CupSoda', 2),
+--  ('sundaes',    'Sundaes & Taças','Dessert', 3),
+--  ('bebidas',    'Bebidas',        'Beer',    4);
 
 -- ────────────────────────────────────────────────────────────
 -- 3. PRODUTOS
@@ -60,19 +60,19 @@ CREATE TABLE products (
   description TEXT
 );
 
-INSERT INTO products (id, name, price, category, color, description) VALUES
-  ('1',  'Casquinha Baunilha',          6.50, 'casquinhas', '#FFF4D4', 'Casquinha crocante com sorvete cremoso de baunilha.'),
-  ('2',  'Casquinha Chocolate',         6.50, 'casquinhas', '#E2C4B1', 'Casquinha crocante com sorvete cremoso de chocolate belga.'),
-  ('3',  'Casquinha Mista',             7.00, 'casquinhas', '#F4E3D3', 'Casquinha crocante misturando baunilha e chocolate.'),
-  ('4',  'Cascão Trufado',             12.00, 'casquinhas', '#D8BCA3', 'Cascão crocante com borda trufada de chocolate e sorvete a escolha.'),
-  ('5',  'Milkshake Ovomaltine 500ml', 16.90, 'milkshakes', '#E6D3C3', 'Milkshake cremoso de chocolate com flocos crocantes de Ovomaltine.'),
-  ('6',  'Milkshake Morango 500ml',    15.90, 'milkshakes', '#FFD1DC', 'Milkshake feito com sorvete de morango e calda artesanal.'),
-  ('7',  'Milkshake Ninho com Nutella',18.90, 'milkshakes', '#FFF0F5', 'Milkshake de leite Ninho mesclado com muita Nutella original.'),
-  ('8',  'Sundae Morango',             13.50, 'sundaes',    '#FFC0CB', 'Taça de sorvete de baunilha, calda quente de morango e castanhas.'),
-  ('9',  'Sundae Chocolate',           13.50, 'sundaes',    '#D2B48C', 'Taça de sorvete de chocolate, calda quente de chocolate e wafer.'),
-  ('10', 'Banana Split',               22.00, 'sundaes',    '#FFF8DC', 'Clássica banana split com 3 bolas de sorvete, caldas e chantilly.'),
-  ('11', 'Água Mineral 500ml',          4.00, 'bebidas',    '#E0F7FA', 'Água mineral sem gás bem gelada.'),
-  ('12', 'Refrigerante Lata',           6.00, 'bebidas',    '#FFCDD2', 'Coca-Cola, Guaraná Antarctica ou Sprite em lata.');
+--  INSERT INTO products (id, name, price, category, color, description) VALUES
+--  ('1',  'Casquinha Baunilha',          6.50, 'casquinhas', '#FFF4D4', 'Casquinha crocante com sorvete cremoso de baunilha.'),
+--  ('2',  'Casquinha Chocolate',         6.50, 'casquinhas', '#E2C4B1', 'Casquinha crocante com sorvete cremoso de chocolate belga.'),
+--  ('3',  'Casquinha Mista',             7.00, 'casquinhas', '#F4E3D3', 'Casquinha crocante misturando baunilha e chocolate.'),
+--  ('4',  'Cascão Trufado',             12.00, 'casquinhas', '#D8BCA3', 'Cascão crocante com borda trufada de chocolate e sorvete a escolha.'),
+--  ('5',  'Milkshake Ovomaltine 500ml', 16.90, 'milkshakes', '#E6D3C3', 'Milkshake cremoso de chocolate com flocos crocantes de Ovomaltine.'),
+--  ('6',  'Milkshake Morango 500ml',    15.90, 'milkshakes', '#FFD1DC', 'Milkshake feito com sorvete de morango e calda artesanal.'),
+--  ('7',  'Milkshake Ninho com Nutella',18.90, 'milkshakes', '#FFF0F5', 'Milkshake de leite Ninho mesclado com muita Nutella original.'),
+--  ('8',  'Sundae Morango',             13.50, 'sundaes',    '#FFC0CB', 'Taça de sorvete de baunilha, calda quente de morango e castanhas.'),
+--  ('9',  'Sundae Chocolate',           13.50, 'sundaes',    '#D2B48C', 'Taça de sorvete de chocolate, calda quente de chocolate e wafer.'),
+--  ('10', 'Banana Split',               22.00, 'sundaes',    '#FFF8DC', 'Clássica banana split com 3 bolas de sorvete, caldas e chantilly.'),
+--  ('11', 'Água Mineral 500ml',          4.00, 'bebidas',    '#E0F7FA', 'Água mineral sem gás bem gelada.'),
+--  ('12', 'Refrigerante Lata',           6.00, 'bebidas',    '#FFCDD2', 'Coca-Cola, Guaraná Antarctica ou Sprite em lata.');
 
 -- ────────────────────────────────────────────────────────────
 -- 4. SESSÕES DE CAIXA
