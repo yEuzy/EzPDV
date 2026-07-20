@@ -33,6 +33,7 @@ interface PosViewProps {
   onOpenRegister: (startingCash: number) => void;
   currentCash: number;
   categories: Category[];
+  currentCompany: any;
 }
 
 export const PosView: React.FC<PosViewProps> = ({
@@ -49,7 +50,8 @@ export const PosView: React.FC<PosViewProps> = ({
   cashRegister,
   onOpenRegister,
   currentCash,
-  categories
+  categories,
+  currentCompany
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -289,6 +291,16 @@ export const PosView: React.FC<PosViewProps> = ({
                   <div className="product-info">
                     <span className="product-name">{product.name}</span>
                     {product.description && <span className="product-desc">{product.description}</span>}
+                    {currentCompany?.enable_inventory && (
+                      <span style={{
+                        fontSize: '11px',
+                        marginTop: '4px',
+                        fontWeight: 600,
+                        color: (product.stock_quantity || 0) > 0 ? 'var(--mint)' : (product.stock_quantity || 0) === 0 ? 'var(--text-light)' : 'var(--danger)'
+                      }}>
+                        Estoque: {product.stock_quantity || 0}
+                      </span>
+                    )}
                   </div>
                   <div className="product-price-row">
                     <span className="product-price">R$ {product.price.toFixed(2)}</span>

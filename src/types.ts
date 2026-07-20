@@ -9,6 +9,7 @@ export interface Company {
   icon: string;
   created_at?: string;
   enable_cost_price?: boolean;
+  enable_inventory?: boolean;
 }
 
 // ─── Produto ───────────────────────────────────────────────────────────────────
@@ -20,6 +21,7 @@ export interface Product {
   color: string;
   description?: string;
   cost_price?: number;
+  stock_quantity?: number;
   company_id: string;
 }
 

@@ -16,6 +16,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   isOnline
 }) => {
   const [enableCostPrice, setEnableCostPrice] = useState(!!currentCompany.enable_cost_price);
+  const [enableInventory, setEnableInventory] = useState(!!currentCompany.enable_inventory);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
 
@@ -28,7 +29,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setIsSaving(true);
     setMessage(null);
     try {
-      const updatedCompany = { ...currentCompany, enable_cost_price: enableCostPrice };
+      const updatedCompany = { ...currentCompany, enable_cost_price: enableCostPrice, enable_inventory: enableInventory };
       await DB.updateCompany(updatedCompany);
       setCurrentCompany(updatedCompany);
       localStorage.setItem(LS.COMPANY, JSON.stringify(updatedCompany));
@@ -112,6 +113,59 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   height: '16px',
                   width: '16px',
                   left: enableCostPrice ? '30px' : '4px',
+                  bottom: '4px',
+                  backgroundColor: 'white',
+                  transition: '.4s',
+                  borderRadius: '50%'
+                }} />
+              </span>
+              </label>
+          </div>
+
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            padding: '16px', 
+            border: '1px solid var(--border-color)', 
+            borderRadius: 'var(--radius-md)',
+            backgroundColor: 'var(--bg-app)'
+          }}>
+            <div>
+              <div style={{ fontWeight: 600, color: 'var(--text-dark)', marginBottom: '4px' }}>
+                Controle de Estoque
+              </div>
+              <div style={{ fontSize: '13px', color: 'var(--text-light)', maxWidth: '400px' }}>
+                Permite acompanhar e atualizar a quantidade em estoque dos seus produtos. Dá baixa automaticamente ao realizar vendas.
+              </div>
+            </div>
+            
+            <label style={{
+              position: 'relative',
+              display: 'inline-block',
+              width: '50px',
+              height: '24px'
+            }}>
+              <input 
+                type="checkbox" 
+                checked={enableInventory}
+                onChange={(e) => setEnableInventory(e.target.checked)}
+                style={{ opacity: 0, width: 0, height: 0 }}
+              />
+              <span style={{
+                position: 'absolute',
+                cursor: 'pointer',
+                top: 0, left: 0, right: 0, bottom: 0,
+                backgroundColor: enableInventory ? 'var(--primary)' : '#ccc',
+                transition: '.4s',
+                borderRadius: '24px'
+              }}>
+                <span style={{
+                  position: 'absolute',
+                  content: '""',
+                  height: '16px',
+                  width: '16px',
+                  left: enableInventory ? '30px' : '4px',
                   bottom: '4px',
                   backgroundColor: 'white',
                   transition: '.4s',

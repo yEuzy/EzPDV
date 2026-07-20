@@ -94,7 +94,7 @@ body {
   position: relative;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 400px) {
   .app-container {
     flex-direction: column;
   }
@@ -102,7 +102,7 @@ body {
 
 /* Sidebar navigation */
 .sidebar {
-  width: 260px;
+  width: clamp(100px, 20vw, 260px); min-width: 100px;
   background-color: var(--card-bg);
   border-right: 1px solid var(--border-color);
   display: flex;
@@ -212,7 +212,7 @@ body {
   z-index: 100;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 400px) {
   .sidebar {
     display: none;
   }
@@ -263,7 +263,7 @@ body {
   min-width: 0;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 400px) {
   .main-content {
     padding: 16px;
     height: calc(100dvh - 128px); /* minus top and bottom bar */
@@ -323,7 +323,7 @@ body {
 }
 
 .pos-cart-side {
-  width: 380px;
+  width: clamp(180px, 30vw, 380px); min-width: 180px;
   background-color: var(--card-bg);
   border-left: 1px solid var(--border-color);
   box-shadow: var(--shadow-lg);
@@ -334,13 +334,13 @@ body {
   overflow: hidden;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 400px) {
   .pos-cart-side {
     width: 320px;
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 400px) {
   .pos-layout {
     flex-direction: column;
     overflow-y: visible;
@@ -405,7 +405,7 @@ body {
 /* Product Grid */
 .products-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
   gap: 16px;
   padding-bottom: 24px;
 }
@@ -846,7 +846,7 @@ body {
   gap: 24px;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 400px) {
   .crud-container {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -937,7 +937,7 @@ body {
 }
 
 /* Responsividade para tabela de produtos no mobile (Transforma linhas em cards) */
-@media (max-width: 768px) {
+@media (max-width: 400px) {
   .products-table thead {
     display: none;
   }
@@ -1100,7 +1100,7 @@ body {
   margin-bottom: 24px;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 400px) {
   .dashboard-grid {
     grid-template-columns: 1fr;
   }
@@ -1170,7 +1170,7 @@ body {
   gap: 24px;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 400px) {
   .reports-charts-layout {
     grid-template-columns: 1fr;
   }
@@ -1371,7 +1371,7 @@ body {
   border: 2px solid var(--white);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 400px) {
   .mobile-cart-toggle {
     display: flex;
     left: 50%;
@@ -1436,7 +1436,7 @@ body {
 }
 
 /* Compact Layout for Mobile and Tablet (density optimization) */
-@media (max-width: 768px) {
+@media (max-width: 400px) {
   .mobile-header {
     padding: 6px 12px !important;
   }

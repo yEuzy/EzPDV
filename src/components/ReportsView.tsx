@@ -346,6 +346,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         )}
       </div>
 
+      {/* Metrics Row */}
       <div className="dashboard-grid">
         <div className="stat-card">
           <div className="stat-icon-wrapper revenue">
@@ -376,20 +377,6 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             <span className="stat-value">R$ {averageTicket.toFixed(2)}</span>
           </div>
         </div>
-
-        {currentCompany?.enable_cost_price && (
-          <div className="stat-card">
-            <div className="stat-icon-wrapper revenue" style={{ backgroundColor: 'rgba(6, 214, 160, 0.15)', color: 'var(--mint)' }}>
-              <TrendingUp size={24} />
-            </div>
-            <div className="stat-content">
-              <span className="stat-label">Lucro Estimado</span>
-              <span className="stat-value" style={{ color: currentSessionProfit >= 0 ? 'var(--text-dark)' : 'var(--danger)' }}>
-                R$ {currentSessionProfit.toFixed(2)}
-              </span>
-            </div>
-          </div>
-        )}
       </div>
 
       <div className="reports-charts-layout">

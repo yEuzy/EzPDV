@@ -313,6 +313,7 @@ export async function fetchProducts(isOnline: boolean, companyId: string): Promi
       ...p,
       price: Number(p.price),
       cost_price: Number(p.cost_price || 0),
+      stock_quantity: Number(p.stock_quantity || 0),
     })) as Product[];
     lsSet(LS.PRODUCTS(companyId), products);
     return products;

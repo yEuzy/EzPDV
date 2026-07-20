@@ -18,6 +18,7 @@ import { ReportsView } from './components/ReportsView';
 import { LoginScreen } from './components/LoginScreen';
 import { MasterAdminPanel } from './components/MasterAdminPanel';
 import { SettingsView } from './components/SettingsView';
+import { InventoryView } from './components/InventoryView';
 import { useConnectionStatus } from './utils/connectionMonitor';
 import { syncQueue, getPendingCount } from './utils/offlineQueue';
 import { LS } from './utils/db';
@@ -71,7 +72,7 @@ const COMPANY_ID = import.meta.env.VITE_COMPANY_ID as string | undefined;
 // ─── App ──────────────────────────────────────────────────────────────────────
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'pos' | 'products' | 'reports' | 'settings'>('pos');
+  const [activeTab, setActiveTab] = useState<'pos' | 'products' | 'reports' | 'settings' | 'inventory'>('pos');
 
   // Painel master (acessível em qualquer estado da app)
   const [showMasterPanel, setShowMasterPanel] = useState(false);
@@ -541,6 +542,22 @@ const App: React.FC = () => {
 
     try {
       await DB.insertSale(isOnline, companyId, newSale, cashRegister.id ?? null);
+      
+      // Decrement stock if inventory control is enabled
+      if (currentCompany?.enable_inventory) {
+        let updatedProductsList = [...products];
+        for (const item of cart) {
+          const product = updatedProductsList.find(p => p.id === item.product.id);
+          if (product) {
+            const newStock = (product.stock_quantity || 0) - item.quantity;
+            const updatedProduct = { ...product, stock_quantity: newStock };
+            DB.updateProduct(isOnline, companyId, updatedProduct).catch(e => console.error(e));
+            updatedProductsList = updatedProductsList.map(p => p.id === product.id ? updatedProduct : p);
+          }
+        }
+        setProducts(updatedProductsList);
+      }
+
       setSales(prev => [newSale, ...prev]);
       setPendingOps(getPendingCount());
       setLastSaleTotal(total);
@@ -847,6 +864,16 @@ const App: React.FC = () => {
               Relatórios
             </button>
 
+            {currentCompany?.enable_inventory && (
+              <button
+                className={`nav-item ${activeTab === 'inventory' ? 'active' : ''}`}
+                onClick={() => setActiveTab('inventory')}
+              >
+                <LucideIcons.Package size={20} />
+                Estoque
+              </button>
+            )}
+
             {currentUser?.role === 'admin' && (
               <button
                 className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`}
@@ -983,12 +1010,14 @@ const App: React.FC = () => {
               {activeTab === 'pos' && 'Fazer Vendas'}
               {activeTab === 'products' && 'Gerenciar Produtos'}
               {activeTab === 'reports' && 'Faturamento e Relatórios'}
+              {activeTab === 'inventory' && 'Controle de Estoque'}
               {activeTab === 'settings' && 'Configurações da Empresa'}
             </h1>
             <span className="page-subtitle">
               {activeTab === 'pos' && 'Selecione os produtos e finalize o pagamento.'}
               {activeTab === 'products' && 'Cadastre, edite ou exclua produtos.'}
               {activeTab === 'reports' && 'Monitore o caixa diário e veja o histórico de transações.'}
+              {activeTab === 'inventory' && 'Acompanhe e faça os acertos das quantidades em estoque.'}
               {activeTab === 'settings' && 'Gerencie configurações globais da sua loja.'}
             </span>
           </div>
@@ -1011,6 +1040,7 @@ const App: React.FC = () => {
               categories={categories}
               onOpenRegister={handleOpenRegister}
               currentCash={currentCash}
+              currentCompany={currentCompany}
             />
           )}
 
@@ -1056,6 +1086,15 @@ const App: React.FC = () => {
               isOnline={isOnline}
             />
           )}
+
+          {activeTab === 'inventory' && currentCompany && (
+            <InventoryView
+              products={products}
+              categories={categories}
+              onUpdateProduct={handleUpdateProduct}
+              currentCompany={currentCompany}
+            />
+          )}
         </div>
       </main>
 
@@ -1082,6 +1121,15 @@ const App: React.FC = () => {
           <BarChart3 className="mobile-nav-icon" />
           <span>Relatórios</span>
         </button>
+        {currentCompany?.enable_inventory && (
+          <button
+            className={`mobile-nav-item ${activeTab === 'inventory' ? 'active' : ''}`}
+            onClick={() => setActiveTab('inventory')}
+          >
+            <LucideIcons.Package className="mobile-nav-icon" />
+            <span>Estoque</span>
+          </button>
+        )}
         {currentUser?.role === 'admin' && (
           <button
             className={`mobile-nav-item ${activeTab === 'settings' ? 'active' : ''}`}
