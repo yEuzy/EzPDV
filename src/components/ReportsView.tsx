@@ -39,6 +39,8 @@ interface ReportsViewProps {
   isOnline: boolean;
   onCancelSale?: (saleId: string) => Promise<void>;
   onUpdateSalePayments?: (saleId: string, newPayments: SalePayment[]) => Promise<void>;
+  onDeleteCashSession?: (sessionId: string) => Promise<void>;
+  onReopenCashSession?: (sessionId: string) => Promise<void>;
   currentCompany: any;
 }
 
@@ -58,6 +60,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   isOnline,
   onCancelSale,
   onUpdateSalePayments,
+  onDeleteCashSession,
+  onReopenCashSession,
   currentCompany
 }) => {
   const [expandedSaleId, setExpandedSaleId] = useState<string | null>(null);
@@ -771,9 +775,9 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             {pastSessions.map((session) => (
               <div key={session.id} style={{ padding: '16px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-app)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-                  <strong>Caixa #{session.id}</strong>
+                  <strong>Caixa do dia {new Date(session.openedAt).toLocaleDateString('pt-BR')}</strong>
                   <span style={{ fontSize: '11px', color: 'var(--text-light)', backgroundColor: '#e2e8f0', padding: '2px 8px', borderRadius: '10px' }}>
-                    {new Date(session.closedAt).toLocaleDateString('pt-BR')}
+                    Fechado: {new Date(session.closedAt).toLocaleDateString('pt-BR')}
                   </span>
                 </div>
                 
@@ -856,6 +860,39 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                   <div style={{ fontSize: '11px', color: 'var(--text-light)', borderTop: '1px dashed #cbd5e1', paddingTop: '8px', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '8px' }}>
                     <FileText size={12} />
                     Obs: {session.notes}
+                  </div>
+                )}
+
+                {currentUser.role === 'admin' && (
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border-color)' }}>
+                    {onReopenCashSession && (
+                      <button
+                        className="btn secondary"
+                        style={{ padding: '6px 12px', fontSize: '11px', flex: 'none', color: 'var(--primary)', borderColor: 'var(--primary)' }}
+                        onClick={() => {
+                          if (window.confirm('Tem certeza que deseja reabrir este caixa?')) {
+                            onReopenCashSession(session.id);
+                          }
+                        }}
+                      >
+                        <Unlock size={12} />
+                        Reabrir Caixa
+                      </button>
+                    )}
+                    {onDeleteCashSession && (
+                      <button
+                        className="btn secondary"
+                        style={{ padding: '6px 12px', fontSize: '11px', flex: 'none', color: 'var(--danger)', borderColor: 'rgba(239,71,111,0.3)' }}
+                        onClick={() => {
+                          if (window.confirm('PERIGO: Tem certeza que deseja excluir este caixa? O histórico do dia será perdido.')) {
+                            onDeleteCashSession(session.id);
+                          }
+                        }}
+                      >
+                        <Trash2 size={12} />
+                        Excluir Caixa
+                      </button>
+                    )}
                   </div>
                 )}
               </div>

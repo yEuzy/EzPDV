@@ -778,3 +778,55 @@ export async function deleteAllCashSessions(isOnline: boolean, companyId: string
   lsSet(LS.CASH_REGISTER(companyId), emptyRegister);
   lsSet(LS.PAST_SESSIONS(companyId), []);
 }
+
+
+export async function deleteCashSession(
+  isOnline: boolean,
+  companyId: string,
+  sessionId: string
+): Promise<void> {
+  if (isOnline && supabase) {
+    const { error: salesError } = await supabase
+      .from('sales')
+      .delete()
+      .eq('cash_session_id', sessionId)
+      .eq('company_id', companyId);
+    
+    if (salesError) throw salesError;
+
+    const { error } = await supabase
+      .from('cash_sessions')
+      .delete()
+      .eq('id', sessionId)
+      .eq('company_id', companyId);
+    if (error) throw error;
+  } else {
+    enqueue('DELETE_CASH_SESSION', 'cash_sessions', {}, { column: 'id', value: sessionId });
+  }
+
+  const past = lsGet<CashRegisterSession[]>(LS.PAST_SESSIONS(companyId)) ?? [];
+  lsSet(LS.PAST_SESSIONS(companyId), past.filter(s => s.id !== sessionId));
+}
+
+export async function reopenCashSession(
+  isOnline: boolean,
+  companyId: string,
+  sessionId: string
+): Promise<void> {
+  const update = {
+    closed_at: null,
+    closed_by: null
+  };
+
+  if (isOnline && supabase) {
+    const { error } = await supabase
+      .from('cash_sessions')
+      .update(update)
+      .eq('id', sessionId)
+      .eq('company_id', companyId);
+    if (error) throw error;
+  } else {
+    enqueue('REOPEN_CASH_SESSION', 'cash_sessions', update, { column: 'id', value: sessionId });
+  }
+}
+

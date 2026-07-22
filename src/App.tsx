@@ -505,6 +505,47 @@ const App: React.FC = () => {
     }
   };
 
+  const handleDeleteCashSession = async (sessionId: string) => {
+    try {
+      await DB.deleteCashSession(isOnline, companyId, sessionId);
+      setPastSessions(prev => prev.filter(s => s.id !== sessionId));
+    } catch (err: any) {
+      alert('Erro ao excluir caixa: ' + err.message);
+    }
+  };
+
+  const handleReopenCashSession = async (sessionId: string) => {
+    if (cashRegister.isOpen) {
+      alert('Já existe um caixa aberto. Feche o caixa atual antes de reabrir um caixa antigo.');
+      return;
+    }
+    
+    try {
+      await DB.reopenCashSession(isOnline, companyId, sessionId);
+      
+      const sessionToReopen = pastSessions.find(s => s.id === sessionId);
+      if (sessionToReopen) {
+        const reopenedRegister: CashRegister = {
+          id: sessionToReopen.id,
+          isOpen: true,
+          openedAt: sessionToReopen.openedAt,
+          openedBy: sessionToReopen.openedBy,
+          startingCash: sessionToReopen.startingCash,
+          movements: sessionToReopen.movements || [],
+          company_id: companyId,
+        };
+        setCashRegister(reopenedRegister);
+        lsSet(LS.CASH_REGISTER(companyId), reopenedRegister);
+        
+        setPastSessions(prev => prev.filter(s => s.id !== sessionId));
+      }
+      
+      alert('Caixa reaberto com sucesso!');
+    } catch (err: any) {
+      alert('Erro ao reabrir caixa: ' + err.message);
+    }
+  };
+
   // ─── Carrinho ─────────────────────────────────────────────────────────────
 
   const addToCart = (product: Product) => {
@@ -1091,6 +1132,8 @@ const App: React.FC = () => {
               isOnline={isOnline}
               onCancelSale={handleCancelSale}
               onUpdateSalePayments={handleUpdateSalePayments}
+              onDeleteCashSession={handleDeleteCashSession}
+              onReopenCashSession={handleReopenCashSession}
               currentCompany={currentCompany!}
             />
           )}
