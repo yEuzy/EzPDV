@@ -71,7 +71,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '600px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
                 <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-light)' }}>
                   <th style={{ padding: '12px 16px', fontWeight: 600 }}>Produto</th>
@@ -125,7 +125,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                             </button>
                           </div>
                         ) : (
-                          <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                          <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                             <button className="btn secondary" style={{ padding: '6px 10px', fontSize: '12px' }} onClick={() => startEdit(product, 'add')} title="Dar Entrada (+)">
                               <Plus size={14} style={{ color: 'var(--mint)' }} />
                             </button>
@@ -134,7 +134,6 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                             </button>
                             <button className="btn secondary" style={{ padding: '6px 10px', fontSize: '12px' }} onClick={() => startEdit(product, 'set')} title="Ajuste Exato (Definir)">
                               <Edit2 size={14} style={{ color: 'var(--primary)' }} />
-                              <span style={{ marginLeft: '4px' }}>Ajustar</span>
                             </button>
                           </div>
                         )}

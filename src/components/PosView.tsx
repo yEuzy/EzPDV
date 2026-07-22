@@ -11,12 +11,10 @@ import {
   Search,
   Check,
   ArrowLeft,
-  IceCreamCone,
-  CupSoda,
-  IceCreamBowl,
-  Cake,
+  Package,
   Store
 } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 
 interface PosViewProps {
   products: Product[];
@@ -123,13 +121,13 @@ export const PosView: React.FC<PosViewProps> = ({
 
   // Helper to render Category Icons dynamically or fallback to fallback
   const getCategoryIcon = (iconName: string, size: number = 24) => {
-    switch (iconName) {
-      case 'IceCreamCone': return <IceCreamCone size={size} />;
-      case 'CupSoda': return <CupSoda size={size} />;
-      case 'IceCreamBowl': return <IceCreamBowl size={size} />;
-      case 'Store': return <Store size={size} />;
-      default: return <Cake size={size} />;
+    let resolvedName = iconName;
+    if (resolvedName === 'IceCreamCone' || resolvedName === 'IceCreamBowl' || resolvedName === 'Cake') {
+      resolvedName = 'Package';
     }
+    const Icon = (LucideIcons as unknown as Record<string, React.FC<{ size?: number }>>)[resolvedName];
+    if (!Icon) return <Package size={size} />;
+    return <Icon size={size} />;
   };
 
   if (!cashRegister.isOpen) {
@@ -270,9 +268,10 @@ export const PosView: React.FC<PosViewProps> = ({
         ) : (
           <div className="products-grid">
             {filteredProducts.map((product) => {
+              const colorsEnabled = currentCompany?.enable_product_colors ?? true;
               const bgStyle = { 
-                '--product-color': product.color || 'var(--primary)',
-                '--product-color-light': `${product.color}20` || 'var(--primary-light)'
+                '--product-color': colorsEnabled ? (product.color || 'var(--primary)') : 'var(--primary)',
+                '--product-color-light': colorsEnabled ? (`${product.color}20` || 'var(--primary-light)') : 'transparent'
               } as React.CSSProperties;
 
               return (
@@ -282,12 +281,7 @@ export const PosView: React.FC<PosViewProps> = ({
                   style={bgStyle}
                   onClick={() => addToCart(product)}
                 >
-                  <div className="product-avatar">
-                    {(() => {
-                      const prodCat = categories.find(c => c.id === product.category);
-                      return getCategoryIcon(prodCat?.icon || 'Cake', 26);
-                    })()}
-                  </div>
+
                   <div className="product-info">
                     <span className="product-name">{product.name}</span>
                     {product.description && <span className="product-desc">{product.description}</span>}

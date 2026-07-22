@@ -12,7 +12,9 @@ interface LoginScreenProps {
 
 // Resolve ícone pelo nome (string) vindo do banco
 function DynamicIcon({ name, size = 48, color }: { name: string; size?: number; color?: string }) {
-  const Icon = (LucideIcons as unknown as Record<string, React.FC<{ size?: number; color?: string }>>)[name];
+  let resolvedName = name;
+  if (name === 'IceCreamCone' || name === 'IceCreamBowl') resolvedName = 'Store';
+  const Icon = (LucideIcons as unknown as Record<string, React.FC<{ size?: number; color?: string }>>)[resolvedName];
   if (!Icon) {
     const Fallback = LucideIcons.Store;
     return <Fallback size={size} color={color} />;

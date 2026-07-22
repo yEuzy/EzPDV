@@ -74,7 +74,7 @@ export const MasterAdminPanel: React.FC<MasterAdminPanelProps> = ({ onClose }) =
   const passwordRef = useRef<HTMLInputElement>(null);
 
   // ─── Forms ───────────────────────────────────────────────────────────────────
-  const emptyCompanyForm: Omit<Company, 'created_at'> = { id: '', name: '', tagline: '', theme_id: 'gelato', icon: 'IceCreamCone' };
+  const emptyCompanyForm: Omit<Company, 'created_at'> = { id: '', name: '', tagline: '', theme_id: 'gelato', icon: 'Store' };
   const [companyForm, setCompanyForm] = useState(emptyCompanyForm);
 
   const emptyOpForm = { id: '', name: '', role: 'operator' as Operator['role'], pin: '' };

@@ -152,6 +152,33 @@ export const THEMES: ThemeDefinition[] = [
       '--scrollbar-hover': '#3d2a1a',
     },
   },
+  {
+    id: 'abyss',
+    name: 'Abismo',
+    emoji: '🌊',
+    dark: true,
+    vars: {
+      '--primary':         '#4A5C6A',
+      '--primary-hover':   '#9BA8AB',
+      '--primary-light':   'rgba(74, 92, 106, 0.15)',
+      '--secondary':       '#CCD0CF',
+      '--secondary-light': 'rgba(204, 208, 207, 0.15)',
+      '--accent':          '#9BA8AB',
+      '--accent-hover':    '#CCD0CF',
+      '--accent-light':    'rgba(155, 168, 171, 0.15)',
+      '--mint':            '#CCD0CF',
+      '--mint-light':      'rgba(204, 208, 207, 0.15)',
+      '--bg-app':          '#06141B',
+      '--card-bg':         '#11212D',
+      '--text-dark':       '#CCD0CF',
+      '--text-light':      '#9BA8AB',
+      '--border-color':    '#253745',
+      '--danger':          '#ef476f',
+      '--shadow-hover':    '0 20px 48px rgba(74, 92, 106, 0.25)',
+      '--scrollbar-thumb': '#253745',
+      '--scrollbar-hover': '#4A5C6A',
+    },
+  },
 ];
 
 // ─── Chave de persistência ────────────────────────────────────────────────────

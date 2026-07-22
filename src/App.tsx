@@ -59,8 +59,9 @@ function generateId(): string {
 
 // Resolve ícone da empresa pelo nome (string)
 function CompanyIcon({ name, size = 24 }: { name?: string; size?: number }) {
-  const iconName = name || 'Store';
-  const Icon = (LucideIcons as unknown as Record<string, React.FC<{ size?: number }>>)[iconName];
+  let resolvedName = name || 'Store';
+  if (resolvedName === 'IceCreamCone' || resolvedName === 'IceCreamBowl') resolvedName = 'Store';
+  const Icon = (LucideIcons as unknown as Record<string, React.FC<{ size?: number }>>)[resolvedName];
   if (!Icon) return <Store size={size} />;
   return <Icon size={size} />;
 }
@@ -93,7 +94,17 @@ const App: React.FC = () => {
 
   // App states
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [currentUser, setCurrentUser] = useState<Operator | null>(null);
+  const [currentUser, setCurrentUser] = useState<Operator | null>(() => {
+    // Global fallback para evitar problemas de mismatch de ID de empresa
+    const globalUser = lsGet<Operator>('ezpdv_last_logged_user');
+    if (globalUser) return globalUser;
+
+    const cid = COMPANY_ID || lsGet<Company>(LS.COMPANY)?.id;
+    if (cid) {
+      return lsGet<Operator>(LS.CURRENT_USER(cid));
+    }
+    return null;
+  });
   const [isCartMobileVisible, setIsCartMobileVisible] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [lastSaleTotal, setLastSaleTotal] = useState(0);
@@ -111,6 +122,8 @@ const App: React.FC = () => {
 
   const [pendingOps, setPendingOps] = useState(0);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+
+  // Force Vite HMR
 
   // Connection status
   const { isOnline, isChecking } = useConnectionStatus();
@@ -290,6 +303,7 @@ const App: React.FC = () => {
     }
   }, [companyId]);
 
+
   // ─── Login / Logout ───────────────────────────────────────────────────────
 
   const handleLogin = async (username: string, pin: string): Promise<boolean> => {
@@ -304,6 +318,7 @@ const App: React.FC = () => {
           
           setCurrentUser(operator);
           lsSet(LS.CURRENT_USER(company.id), operator);
+          lsSet('ezpdv_last_logged_user', operator);
           return true;
         }
       }
@@ -315,6 +330,7 @@ const App: React.FC = () => {
 
   const handleLogout = () => {
     setCurrentUser(null);
+    localStorage.removeItem('ezpdv_last_logged_user');
     if (companyId) localStorage.removeItem(LS.CURRENT_USER(companyId));
     
     // Se não há empresa fixa no .env, descarrega a empresa para voltar ao login neutro

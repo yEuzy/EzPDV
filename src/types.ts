@@ -1,5 +1,5 @@
 // ─── Empresa ───────────────────────────────────────────────────────────────────
-export type ThemeId = 'gelato' | 'gelato-dark' | 'sky' | 'forest' | 'ember';
+export type ThemeId = 'gelato' | 'gelato-dark' | 'sky' | 'forest' | 'ember' | 'abyss';
 
 export interface Company {
   id: string;
@@ -10,6 +10,7 @@ export interface Company {
   created_at?: string;
   enable_cost_price?: boolean;
   enable_inventory?: boolean;
+  enable_product_colors?: boolean;
 }
 
 // ─── Produto ───────────────────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { Product, Category } from '../types';
-import { Plus, Edit2, Trash2, RotateCcw, Save } from 'lucide-react';
+import { Plus, Edit2, Trash2, RotateCcw, Save, Search, X } from 'lucide-react';
 
 interface ProductsViewProps {
   products: Product[];
@@ -51,12 +51,16 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
   const [color, setColor] = useState(PASTEL_COLORS[0]);
   const [description, setDescription] = useState('');
   const [error, setError] = useState('');
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // --- Category State ---
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [catName, setCatName] = useState('');
-  const [catIcon, setCatIcon] = useState('IceCreamCone');
+  const [catIcon, setCatIcon] = useState('Package');
   const [catError, setCatError] = useState('');
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [catSearchQuery, setCatSearchQuery] = useState('');
 
   // Update form fields when editingProduct changes
   useEffect(() => {
@@ -67,6 +71,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
       setCategory(editingProduct.category);
       setColor(editingProduct.color);
       setDescription(editingProduct.description || '');
+      setIsProductModalOpen(true);
     } else {
       resetProductForm();
     }
@@ -91,13 +96,15 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
     setColor(PASTEL_COLORS[0]);
     setDescription('');
     setError('');
+    setIsProductModalOpen(false);
   };
 
   const resetCategoryForm = () => {
     setEditingCategory(null);
     setCatName('');
-    setCatIcon('IceCreamCone');
+    setCatIcon('Package');
     setCatError('');
+    setIsCategoryModalOpen(false);
   };
 
   const handleProductSubmit = (e: React.FormEvent) => {
@@ -167,7 +174,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
 
   const handleEditProductClick = (product: Product) => {
     setEditingProduct(product);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setIsProductModalOpen(true);
   };
 
   const handleDeleteProductClick = (id: string) => {
@@ -181,7 +188,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
 
   const handleEditCategoryClick = (category: Category) => {
     setEditingCategory(category);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setIsCategoryModalOpen(true);
   };
 
   const handleDeleteCategoryClick = (id: string) => {
@@ -220,13 +227,25 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
       </div>
 
       {activeTab === 'products' && (
-        <div className="crud-container">
-          {/* Form Container (Right/Left depending on Grid) */}
-          <div className="card" style={{ height: 'fit-content' }}>
-            <h3 style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {editingProduct ? <Edit2 size={20} style={{ color: 'var(--accent)' }} /> : <Plus size={20} style={{ color: 'var(--primary)' }} />}
-              {editingProduct ? 'Editar Produto' : 'Cadastrar Novo Produto'}
-            </h3>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {/* Modal Container */}
+          {isProductModalOpen && (
+            <div style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
+            }}>
+              <div className="card" style={{ width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto', position: 'relative' }}>
+                <button 
+                  onClick={resetProductForm}
+                  style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-light)' }}
+                >
+                  <X size={24} />
+                </button>
+                <h3 style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {editingProduct ? <Edit2 size={20} style={{ color: 'var(--accent)' }} /> : <Plus size={20} style={{ color: 'var(--primary)' }} />}
+                  {editingProduct ? 'Editar Produto' : 'Cadastrar Novo Produto'}
+                </h3>
 
         <form onSubmit={handleProductSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {error && (
@@ -261,18 +280,6 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
               </select>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Preço (R$) *</label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                className="form-input"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                placeholder="0.00"
-              />
-            </div>
             {currentCompany?.enable_cost_price && (
               <div className="form-group">
                 <label className="form-label">Preço de Custo (R$)</label>
@@ -287,6 +294,18 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                 />
               </div>
             )}
+            <div className="form-group">
+              <label className="form-label">Preço (R$) *</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                className="form-input"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                placeholder="0.00"
+              />
+            </div>
           </div>
 
           <div className="form-group">
@@ -301,20 +320,22 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
             />
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Cor de Exibição (Pastel)</label>
-            <div className="color-picker-grid">
-              {PASTEL_COLORS.map((c) => (
-                <div
-                  key={c}
-                  className={`color-option ${color === c ? 'selected' : ''}`}
-                  style={{ backgroundColor: c }}
-                  onClick={() => setColor(c)}
-                  title={c}
-                />
-              ))}
+          {(currentCompany?.enable_product_colors ?? true) && (
+            <div className="form-group">
+              <label className="form-label">Cor de Exibição (Pastel)</label>
+              <div className="color-picker-grid">
+                {PASTEL_COLORS.map((c) => (
+                  <div
+                    key={c}
+                    className={`color-option ${color === c ? 'selected' : ''}`}
+                    style={{ backgroundColor: c }}
+                    onClick={() => setColor(c)}
+                    title={c}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="form-actions">
             {editingProduct && (
@@ -329,11 +350,35 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
             </button>
           </div>
         </form>
-      </div>
+              </div>
+            </div>
+          )}
 
       {/* Catalog Table */}
-      <div className="card">
-        <h3 style={{ marginBottom: '20px' }}>Catálogo de Produtos ({products.length})</h3>
+      <div className="card" style={{ marginTop: 0 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '20px', gap: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3 style={{ margin: 0 }}>Catálogo ({products.length})</h3>
+            <button 
+              className="btn primary new-product-btn" 
+              onClick={() => setIsProductModalOpen(true)}
+              title="Novo Produto"
+            >
+              <Plus size={22} />
+            </button>
+          </div>
+          
+          <div className="search-box" style={{ width: '100%' }}>
+            <Search size={18} className="search-icon" />
+            <input
+              type="text"
+              placeholder="Buscar produto..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="search-input"
+            />
+          </div>
+        </div>
         
         {products.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-light)' }}>
@@ -348,19 +393,24 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                   <th>Produto</th>
                   <th>Categoria</th>
                   {currentCompany?.enable_cost_price && <th>Custo</th>}
+                  {currentCompany?.enable_inventory && <th>Estoque</th>}
                   <th>Preço</th>
                   <th style={{ textAlign: 'center' }}>Ações</th>
                 </tr>
               </thead>
               <tbody>
-                {products.map((product) => (
+                {products
+                  .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                  .map((product) => (
                   <tr key={product.id}>
                     <td>
                       <div className="table-product-cell">
-                        <div 
-                          className="table-color-dot" 
-                          style={{ backgroundColor: product.color }} 
-                        />
+                        {(currentCompany?.enable_product_colors ?? true) && (
+                          <div 
+                            className="table-color-dot" 
+                            style={{ backgroundColor: product.color }} 
+                          />
+                        )}
                         <div>
                           <strong style={{ display: 'block', fontSize: '14px' }}>{product.name}</strong>
                           {product.description && (
@@ -377,6 +427,11 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                     {currentCompany?.enable_cost_price && (
                       <td className="table-price" style={{ color: 'var(--text-light)' }}>
                         R$ {(product.cost_price || 0).toFixed(2)}
+                      </td>
+                    )}
+                    {currentCompany?.enable_inventory && (
+                      <td style={{ fontWeight: 600, color: (product.stock_quantity || 0) > 0 ? 'var(--mint)' : (product.stock_quantity || 0) === 0 ? 'var(--text-light)' : 'var(--danger)' }}>
+                        Estoque: {product.stock_quantity || 0}
                       </td>
                     )}
                     <td className="table-price">
@@ -411,13 +466,25 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
     )}
 
     {activeTab === 'categories' && (
-      <div className="crud-container">
-        {/* Category Form Container */}
-        <div className="card" style={{ height: 'fit-content' }}>
-          <h3 style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {editingCategory ? <Edit2 size={20} style={{ color: 'var(--accent)' }} /> : <Plus size={20} style={{ color: 'var(--primary)' }} />}
-            {editingCategory ? 'Editar Categoria' : 'Cadastrar Nova Categoria'}
-          </h3>
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        {/* Category Modal Container */}
+        {isCategoryModalOpen && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
+          }}>
+            <div className="card" style={{ width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto', position: 'relative' }}>
+              <button 
+                onClick={resetCategoryForm}
+                style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-light)' }}
+              >
+                <X size={24} />
+              </button>
+              <h3 style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {editingCategory ? <Edit2 size={20} style={{ color: 'var(--accent)' }} /> : <Plus size={20} style={{ color: 'var(--primary)' }} />}
+                {editingCategory ? 'Editar Categoria' : 'Cadastrar Nova Categoria'}
+              </h3>
 
           <form onSubmit={handleCategorySubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {catError && (
@@ -445,11 +512,14 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                 onChange={(e) => setCatIcon(e.target.value)}
                 style={{ height: '42px' }}
               >
-                <option value="IceCreamCone">Produto Unitário / Item</option>
+                <option value="Package">Pacote / Genérico</option>
+                <option value="Beer">Cerveja / Lata</option>
+                <option value="Wine">Vinho / Garrafa</option>
                 <option value="CupSoda">Bebida / Copo</option>
-                <option value="IceCreamBowl">Porção / Prato</option>
-                <option value="Cake">Sobremesas / Doces</option>
-                <option value="Store">Loja / Gerais</option>
+                <option value="Coffee">Café / Quente</option>
+                <option value="ShoppingBag">Sacola / Loja</option>
+                <option value="Tag">Etiqueta / Variedade</option>
+                <option value="Store">Loja Física</option>
               </select>
             </div>
 
@@ -466,11 +536,35 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
               </button>
             </div>
           </form>
-        </div>
+            </div>
+          </div>
+        )}
 
         {/* Categories Catalog Table */}
-        <div className="card">
-          <h3 style={{ marginBottom: '20px' }}>Catálogo de Categorias ({categories.length})</h3>
+        <div className="card" style={{ marginTop: 0 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '20px', gap: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0 }}>Catálogo de Categorias ({categories.length})</h3>
+              <button 
+                className="btn primary new-product-btn" 
+                onClick={() => setIsCategoryModalOpen(true)}
+                title="Nova Categoria"
+              >
+                <Plus size={22} />
+              </button>
+            </div>
+
+            <div className="search-box" style={{ width: '100%' }}>
+              <Search size={18} className="search-icon" />
+              <input
+                type="text"
+                placeholder="Buscar categoria..."
+                value={catSearchQuery}
+                onChange={(e) => setCatSearchQuery(e.target.value)}
+                className="search-input"
+              />
+            </div>
+          </div>
           
           {categories.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-light)' }}>
@@ -487,7 +581,9 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {categories.map((cat) => (
+                  {categories
+                    .filter(cat => cat.name.toLowerCase().includes(catSearchQuery.toLowerCase()))
+                    .map((cat) => (
                     <tr key={cat.id}>
                       <td>
                         <strong style={{ display: 'block', fontSize: '14px' }}>{cat.name}</strong>

@@ -15,8 +15,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   setCurrentCompany,
   isOnline
 }) => {
-  const [enableCostPrice, setEnableCostPrice] = useState(!!currentCompany.enable_cost_price);
-  const [enableInventory, setEnableInventory] = useState(!!currentCompany.enable_inventory);
+  const [enableCostPrice, setEnableCostPrice] = useState(currentCompany?.enable_cost_price || false);
+  const [enableInventory, setEnableInventory] = useState(currentCompany?.enable_inventory || false);
+  const [enableProductColors, setEnableProductColors] = useState(currentCompany?.enable_product_colors ?? true);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
 
@@ -29,7 +30,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setIsSaving(true);
     setMessage(null);
     try {
-      const updatedCompany = { ...currentCompany, enable_cost_price: enableCostPrice, enable_inventory: enableInventory };
+      const updatedCompany = { ...currentCompany, enable_cost_price: enableCostPrice, enable_inventory: enableInventory, enable_product_colors: enableProductColors };
       await DB.updateCompany(updatedCompany);
       setCurrentCompany(updatedCompany);
       localStorage.setItem(LS.COMPANY, JSON.stringify(updatedCompany));
@@ -166,6 +167,59 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   height: '16px',
                   width: '16px',
                   left: enableInventory ? '30px' : '4px',
+                  bottom: '4px',
+                  backgroundColor: 'white',
+                  transition: '.4s',
+                  borderRadius: '50%'
+                }} />
+              </span>
+            </label>
+          </div>
+
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            padding: '16px', 
+            border: '1px solid var(--border-color)', 
+            borderRadius: 'var(--radius-md)',
+            backgroundColor: 'var(--bg-app)'
+          }}>
+            <div>
+              <div style={{ fontWeight: 600, color: 'var(--text-dark)', marginBottom: '4px' }}>
+                Ativar Cores de Exibição
+              </div>
+              <div style={{ fontSize: '13px', color: 'var(--text-light)', maxWidth: '400px' }}>
+                Habilita a escolha e exibição de cores pastel para destacar os produtos no PDV.
+              </div>
+            </div>
+            
+            <label style={{
+              position: 'relative',
+              display: 'inline-block',
+              width: '50px',
+              height: '24px'
+            }}>
+              <input 
+                type="checkbox" 
+                checked={enableProductColors}
+                onChange={(e) => setEnableProductColors(e.target.checked)}
+                style={{ opacity: 0, width: 0, height: 0 }}
+              />
+              <span style={{
+                position: 'absolute',
+                cursor: 'pointer',
+                top: 0, left: 0, right: 0, bottom: 0,
+                backgroundColor: enableProductColors ? 'var(--primary)' : '#ccc',
+                transition: '.4s',
+                borderRadius: '24px'
+              }}>
+                <span style={{
+                  position: 'absolute',
+                  content: '""',
+                  height: '16px',
+                  width: '16px',
+                  left: enableProductColors ? '30px' : '4px',
                   bottom: '4px',
                   backgroundColor: 'white',
                   transition: '.4s',
