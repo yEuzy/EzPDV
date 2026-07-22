@@ -261,7 +261,7 @@ export const PosView: React.FC<PosViewProps> = ({
         {/* Products Grid */}
         {filteredProducts.length === 0 ? (
           <div className="card" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-light)' }}>
-            <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center' }}><IceCreamCone size={40} /></div>
+            <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center' }}><Package size={40} /></div>
             <h3>Nenhum produto encontrado</h3>
             <p>Tente buscar por outro termo.</p>
           </div>
