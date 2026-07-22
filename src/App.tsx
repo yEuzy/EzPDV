@@ -308,7 +308,7 @@ const App: React.FC = () => {
 
   const handleLogin = async (username: string, pin: string): Promise<boolean> => {
     try {
-      const operator = await DB.authenticateUser(username, pin, isOnline);
+      const operator = await DB.authenticateUser(username, pin, isOnline, COMPANY_ID);
       if (operator) {
         const company = await DB.fetchCompany(operator.company_id);
         if (company) {

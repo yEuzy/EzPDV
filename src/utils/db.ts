@@ -111,20 +111,22 @@ export interface CachedLogin {
   operator: Operator;
 }
 
-export async function authenticateUser(username: string, pin: string, isOnline: boolean): Promise<Operator | null> {
+export async function authenticateUser(username: string, pin: string, isOnline: boolean, companyId?: string): Promise<Operator | null> {
   // Ignora maiúsculas e minúsculas no frontend
   const normalizedUsername = username.trim().toLowerCase();
 
   if (isOnline && supabase) {
-    // Busca o operador no banco de dados. Para não expor os PINs na requisição, 
-    // fazemos o match pelo nome (case-insensitive via ilike) e verificamos o pin exato
-    const { data, error } = await supabase
+    let query = supabase
       .from('operators')
       .select('*')
       .ilike('name', normalizedUsername)
-      .eq('pin', pin)
-      .limit(1)
-      .single();
+      .eq('pin', pin);
+
+    if (companyId) {
+      query = query.eq('company_id', companyId);
+    }
+
+    const { data, error } = await query.limit(1).single();
 
     if (!error && data) {
       const operator = data as Operator;
@@ -138,7 +140,11 @@ export async function authenticateUser(username: string, pin: string, isOnline: 
   } else {
     // Offline fallback
     const cache = lsGet<CachedLogin[]>(LS.GLOBAL_LOGIN_CACHE) || [];
-    const match = cache.find(c => c.username.toLowerCase() === normalizedUsername && c.pin === pin);
+    const match = cache.find(c => 
+      c.username.toLowerCase() === normalizedUsername && 
+      c.pin === pin && 
+      (!companyId || c.operator.company_id === companyId)
+    );
     if (match) {
       return match.operator;
     }
